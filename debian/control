@@ -1,0 +1,12 @@
+Source: ros-rolling-cpptoml-vendor
+Section: misc
+Priority: optional
+Maintainer: Eclipse Foundation, Inc. <iceoryx-dev@eclipse.org>
+Build-Depends: debhelper (>= 9.0.0), ros-rolling-ament-cmake, ros-rolling-ros-workspace
+Homepage: https://github.com/skystrife/cpptoml
+Standards-Version: 3.9.2
+
+Package: ros-rolling-cpptoml-vendor
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-rolling-ros-workspace
+Description: Wrapper around cpptoml for parsing TOML configuration files , build is done via a CMake ExternalProject.
