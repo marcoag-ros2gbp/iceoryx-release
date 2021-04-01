@@ -1,0 +1,12 @@
+Source: ros-rolling-iceoryx-binding-c
+Section: misc
+Priority: optional
+Maintainer: Eclipse Foundation, Inc. <iceoryx-dev@eclipse.org>
+Build-Depends: debhelper (>= 9.0.0), cmake, ros-rolling-iceoryx-posh, ros-rolling-iceoryx-utils, ros-rolling-ros-workspace
+Homepage: https://iceoryx.io
+Standards-Version: 3.9.2
+
+Package: ros-rolling-iceoryx-binding-c
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-rolling-ros-workspace
+Description: Eclipse iceoryx inter-process-communication (IPC) middleware C-Language Binding
