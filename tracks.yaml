@@ -21,8 +21,8 @@ tracks:
     patches: null
     release_inc: '1'
     release_repo_url: null
-    release_tag: v0.99.6
+    release_tag: v0.99.7
     ros_distro: rolling
     vcs_type: git
     vcs_uri: https://github.com/eclipse-iceoryx/iceoryx.git
-    version: 0.99.6
+    version: 0.99.7
