@@ -1,4 +1,5 @@
-// Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2019 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,21 +14,19 @@
 // limitations under the License.
 //
 // SPDX-License-Identifier: Apache-2.0
-#ifndef IOX_UTILS_WIN_PLATFORM_STAT_HPP
-#define IOX_UTILS_WIN_PLATFORM_STAT_HPP
+#ifndef IOX_UTILS_CONCURRENT_LOFFLI_INL
+#define IOX_UTILS_CONCURRENT_LOFFLI_INL
 
-#include <io.h>
-#include <sys/stat.h>
+namespace iox
+{
+namespace concurrent
+{
+inline constexpr std::size_t LoFFLi::requiredIndexMemorySize(const uint32_t capacity) noexcept
+{
+    return (static_cast<size_t>(capacity) + 1U) * sizeof(LoFFLi::Index_t);
+}
 
-#define S_IRUSR 0
-#define S_IWUSR 1
-#define S_IRGRP 2
-#define S_IWGRP 3
-#define S_IROTH 4
-#define S_IWOTH 5
-#define S_IRWXU 6
-#define S_IXUSR 7
-#define S_IXGRP 8
-#define S_IRWXO 9
+} // namespace concurrent
+} // namespace iox
 
-#endif // IOX_UTILS_WIN_PLATFORM_STAT_HPP
+#endif // IOX_UTILS_CONCURRENT_LOFFLI_INL
