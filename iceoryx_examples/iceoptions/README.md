@@ -7,7 +7,7 @@ side. The options can be used for the typed and untyped C++ API flavors as well 
 
 ## Expected Output
 
-<!-- Add asciinema link here -->
+[![asciicast](https://asciinema.org/a/407362.svg)](https://asciinema.org/a/407362)
 
 ## Code walkthrough
 
@@ -45,6 +45,13 @@ Both publisher and subscriber have to request compatible policies (`SubscriberTo
 
 ```cpp
 publisherOptions.subscriberTooSlowPolicy = iox::popo::SubscriberTooSlowPolicy::WAIT_FOR_SUBSCRIBER;
+```
+
+With this option set, it is possible that a slow subscriber blocks a publisher indefinitely due to the busy waiting loop.
+In order to be able to gracefully shutdown the application with `Ctrl+C`, the publisher needs to be unblocked.
+This is done by placing the following code in the signal handler.
+```
+iox::runtime::PoshRuntime::getInstance().shutdown();
 ```
 
 ### Subscriber
