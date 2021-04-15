@@ -101,8 +101,16 @@ void RouDi::shutdown()
 
         m_prcMgr->requestShutdownOfAllProcesses();
 
+        using namespace units::duration_literals;
+        auto remainingDurationForWarnPrint = m_processKillDelay - 2_s;
         while (m_prcMgr->isAnyRegisteredProcessStillRunning() && !finalKillTimer.hasExpired())
         {
+            if (remainingDurationForWarnPrint > finalKillTimer.remainingTime())
+            {
+                LogWarn() << "Some applications seem to not shutdown gracefully! Time until hard shutdown: "
+                          << finalKillTimer.remainingTime().toSeconds() << "s!";
+                remainingDurationForWarnPrint = remainingDurationForWarnPrint - 5_s;
+            }
             // give processes some time to terminate
             std::this_thread::sleep_for(std::chrono::milliseconds(PROCESS_TERMINATED_CHECK_INTERVAL.toMilliseconds()));
         }
@@ -335,6 +343,20 @@ void RouDi::processMessage(const runtime::IpcMessage& message,
     case runtime::IpcMessageType::KEEPALIVE:
     {
         m_prcMgr->updateLivelinessOfProcess(runtimeName);
+        break;
+    }
+    case runtime::IpcMessageType::PREPARE_APP_TERMINATION:
+    {
+        if (message.getNumberOfElements() != 2)
+        {
+            LogError() << "Wrong number of parameters for \"IpcMessageType::PREPARE_APP_TERMINATION\" from \""
+                       << runtimeName << "\"received!";
+        }
+        else
+        {
+            // this is used to unblock a potentially block application by blocking publisher
+            m_prcMgr->handleProcessShutdownPreparationRequest(runtimeName);
+        }
         break;
     }
     case runtime::IpcMessageType::TERMINATION:
