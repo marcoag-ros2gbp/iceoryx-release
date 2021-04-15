@@ -89,8 +89,12 @@ class PortManager
     cxx::expected<popo::ConditionVariableData*, PortPoolError>
     acquireConditionVariableData(const RuntimeName_t& runtimeName) noexcept;
 
-    /// @brief Used to unblock potential locks in the shutdown phase
-    void unblockShutdown() noexcept;
+    /// @brief Used to unblock potential locks in the shutdown phase of a process
+    /// @param [in] name of the process runtime which is about to shut down
+    void unblockProcessShutdown(const RuntimeName_t& runtimeName) noexcept;
+
+    /// @brief Used to unblock potential locks in the shutdown phase of RouDi
+    void unblockRouDiShutdown() noexcept;
 
     void deletePortsOfProcess(const RuntimeName_t& runtimeName) noexcept;
 
@@ -136,8 +140,8 @@ class PortManager
     doesViolateCommunicationPolicy(const capro::ServiceDescription& service) const noexcept;
 
     template <typename T, std::enable_if_t<std::is_same<T, iox::build::ManyToManyPolicy>::value>* = nullptr>
-    cxx::optional<RuntimeName_t> doesViolateCommunicationPolicy(const capro::ServiceDescription& service
-                                                                [[gnu::unused]]) const noexcept;
+    cxx::optional<RuntimeName_t>
+    doesViolateCommunicationPolicy(const capro::ServiceDescription& service IOX_MAYBE_UNUSED) const noexcept;
 
   private:
     RouDiMemoryInterface* m_roudiMemoryInterface{nullptr};
