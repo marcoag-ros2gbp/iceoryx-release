@@ -65,7 +65,7 @@ UnixDomainSocket::UnixDomainSocket(const NoPathPrefix_t,
                                    const IpcChannelMode mode,
                                    const IpcChannelSide channelSide,
                                    const size_t maxMsgSize,
-                                   const uint64_t maxMsgNumber [[gnu::unused]]) noexcept
+                                   const uint64_t maxMsgNumber IOX_MAYBE_UNUSED) noexcept
     : m_name(name)
     , m_channelSide(channelSide)
 {
@@ -351,6 +351,12 @@ cxx::expected<IpcChannelError> UnixDomainSocket::initalizeSocket(const IpcChanne
     {
         return cxx::error<IpcChannelError>(IpcChannelError::INVALID_ARGUMENTS);
     }
+
+    // the mask will be applied to the permissions, we only allow users and group members to have read and write access
+    // the system call always succeeds, no need to check for errors
+    mode_t umaskSaved = umask(S_IXUSR | S_IXGRP | S_IRWXO);
+    // Reset to old umask when going out of scope
+    cxx::GenericRAII umaskGuard([&] { umask(umaskSaved); });
 
     auto socketCall =
         cxx::makeSmartC(socket, cxx::ReturnMode::PRE_DEFINED_ERROR_CODE, {ERROR_CODE}, {}, AF_LOCAL, SOCK_DGRAM, 0);
