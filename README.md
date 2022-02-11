@@ -1,3 +1,29 @@
+## iceoryx (rolling) - 1.0.2-1
+
+The packages in the `iceoryx` repository were released into the `rolling` distro by running `/home/dietrich.kroenke/.local/bin/bloom-release --rosdistro rolling --track rolling iceoryx --edit` on `Fri, 11 Feb 2022 18:08:05 -0000`
+
+These packages were released:
+- `iceoryx_binding_c`
+- `iceoryx_posh`
+- `iceoryx_utils`
+
+Version of package(s) in repository `iceoryx`:
+
+- upstream repository: https://github.com/eclipse-iceoryx/iceoryx.git
+- release repository: https://github.com/ros2-gbp/iceoryx-release.git
+- rosdistro version: `1.0.0-2`
+- old version: `1.0.0-2`
+- new version: `1.0.2-1`
+
+Versions of tools used:
+
+- bloom version: `0.10.7`
+- catkin_pkg version: `0.4.23`
+- rosdep version: `0.20.0`
+- rosdistro version: `0.8.3`
+- vcstools version: `0.1.42`
+
+
 ## iceoryx (rolling) - 1.0.0-1
 
 The packages in the `iceoryx` repository were released into the `rolling` distro by running `/usr/local/bin/bloom-release --rosdistro rolling --track rolling iceoryx --edit` on `Thu, 15 Apr 2021 19:03:09 -0000`
