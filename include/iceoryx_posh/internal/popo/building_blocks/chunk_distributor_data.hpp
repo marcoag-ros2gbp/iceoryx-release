@@ -17,16 +17,16 @@
 #ifndef IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_DISTRIBUTOR_DATA_HPP
 #define IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_DISTRIBUTOR_DATA_HPP
 
+#include "iceoryx_hoofs/cxx/algorithm.hpp"
+#include "iceoryx_hoofs/cxx/vector.hpp"
+#include "iceoryx_hoofs/error_handling/error_handling.hpp"
+#include "iceoryx_hoofs/internal/posix_wrapper/mutex.hpp"
+#include "iceoryx_hoofs/internal/relocatable_pointer/relative_pointer.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
 #include "iceoryx_posh/internal/log/posh_logging.hpp"
 #include "iceoryx_posh/internal/mepoo/shm_safe_unmanaged_chunk.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_queue_pusher.hpp"
 #include "iceoryx_posh/popo/port_queue_policies.hpp"
-#include "iceoryx_utils/cxx/algorithm.hpp"
-#include "iceoryx_utils/cxx/vector.hpp"
-#include "iceoryx_utils/error_handling/error_handling.hpp"
-#include "iceoryx_utils/internal/posix_wrapper/mutex.hpp"
-#include "iceoryx_utils/internal/relocatable_pointer/relative_pointer.hpp"
 
 #include <cstdint>
 #include <mutex>
@@ -44,7 +44,7 @@ struct ChunkDistributorData : public LockingPolicy
     using ChunkQueueData_t = typename ChunkQueuePusherType::MemberType_t;
     using ChunkDistributorDataProperties_t = ChunkDistributorDataProperties;
 
-    ChunkDistributorData(const SubscriberTooSlowPolicy policy, const uint64_t historyCapacity = 0u) noexcept;
+    ChunkDistributorData(const ConsumerTooSlowPolicy policy, const uint64_t historyCapacity = 0u) noexcept;
 
     const uint64_t m_historyCapacity;
 
@@ -59,7 +59,7 @@ struct ChunkDistributorData : public LockingPolicy
     using HistoryContainer_t =
         cxx::vector<mepoo::ShmSafeUnmanagedChunk, ChunkDistributorDataProperties_t::MAX_HISTORY_CAPACITY>;
     HistoryContainer_t m_history;
-    const SubscriberTooSlowPolicy m_subscriberTooSlowPolicy;
+    const ConsumerTooSlowPolicy m_consumerTooSlowPolicy;
 };
 
 } // namespace popo

@@ -1,4 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,12 +17,12 @@
 #ifndef IOX_POSH_POPO_PORTS_SERVER_PORT_ROUDI_HPP
 #define IOX_POSH_POPO_PORTS_SERVER_PORT_ROUDI_HPP
 
+#include "iceoryx_hoofs/cxx/optional.hpp"
 #include "iceoryx_posh/internal/capro/capro_message.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_receiver.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_sender.hpp"
 #include "iceoryx_posh/internal/popo/ports/base_port.hpp"
 #include "iceoryx_posh/internal/popo/ports/server_port_data.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
 
 namespace iox
 {
@@ -36,13 +37,21 @@ class ServerPortRouDi : public BasePort
   public:
     using MemberType_t = ServerPortData;
 
-    explicit ServerPortRouDi(cxx::not_null<MemberType_t* const> serverPortDataPtr) noexcept;
+    explicit ServerPortRouDi(MemberType_t& serverPortData) noexcept;
 
     ServerPortRouDi(const ServerPortRouDi& other) = delete;
     ServerPortRouDi& operator=(const ServerPortRouDi&) = delete;
-    ServerPortRouDi(ServerPortRouDi&& rhs) = default;
-    ServerPortRouDi& operator=(ServerPortRouDi&& rhs) = default;
+    ServerPortRouDi(ServerPortRouDi&& rhs) noexcept = default;
+    ServerPortRouDi& operator=(ServerPortRouDi&& rhs) noexcept = default;
     ~ServerPortRouDi() = default;
+
+    /// @brief Access to the configured requestQueueFullPolicy
+    /// @return the configured requestQueueFullPolicy
+    QueueFullPolicy getRequestQueueFullPolicy() const noexcept;
+
+    /// @brief Access to the configured clientTooSlowPolicy
+    /// @return the configured clientTooSlowPolicy
+    ConsumerTooSlowPolicy getClientTooSlowPolicy() const noexcept;
 
     /// @brief get an optional CaPro message that changes the offer state of the server
     /// @return CaPro message with the new offer state, empty optional if no state change
@@ -61,6 +70,13 @@ class ServerPortRouDi : public BasePort
   private:
     const MemberType_t* getMembers() const noexcept;
     MemberType_t* getMembers() noexcept;
+
+    void handleCaProProtocolViolation(const capro::CaproMessageType messageType) const noexcept;
+
+    cxx::optional<capro::CaproMessage>
+    handleCaProMessageForStateOffered(const capro::CaproMessage& caProMessage) noexcept;
+    cxx::optional<capro::CaproMessage>
+    handleCaProMessageForStateNotOffered(const capro::CaproMessage& caProMessage) noexcept;
 
     ChunkSender<ServerChunkSenderData_t> m_chunkSender;
     ChunkReceiver<ServerChunkReceiverData_t> m_chunkReceiver;

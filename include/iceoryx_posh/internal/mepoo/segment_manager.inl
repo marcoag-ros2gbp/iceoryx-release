@@ -17,10 +17,10 @@
 #ifndef IOX_POSH_MEPOO_SEGMENT_MANAGER_INL
 #define IOX_POSH_MEPOO_SEGMENT_MANAGER_INL
 
+#include "iceoryx_hoofs/cxx/helplets.hpp"
+#include "iceoryx_hoofs/error_handling/error_handling.hpp"
+#include "iceoryx_hoofs/internal/posix_wrapper/system_configuration.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
-#include "iceoryx_utils/cxx/helplets.hpp"
-#include "iceoryx_utils/error_handling/error_handling.hpp"
-#include "iceoryx_utils/internal/posix_wrapper/system_configuration.hpp"
 
 namespace iox
 {
@@ -68,7 +68,7 @@ SegmentManager<SegmentType>::getSegmentMappings(const posix::PosixUser& user) no
                 // process
                 if (!foundInWriterGroup)
                 {
-                    mappingContainer.emplace_back("/" + segment.getWriterGroup().getName(),
+                    mappingContainer.emplace_back(segment.getWriterGroup().getName(),
                                                   segment.getSharedMemoryObject().getBaseAddress(),
                                                   segment.getSharedMemoryObject().getSizeInBytes(),
                                                   true,
@@ -78,6 +78,7 @@ SegmentManager<SegmentType>::getSegmentMappings(const posix::PosixUser& user) no
                 else
                 {
                     errorHandler(Error::kMEPOO__USER_WITH_MORE_THAN_ONE_WRITE_SEGMENT);
+                    return SegmentManager::SegmentMappingContainer();
                 }
             }
         }
@@ -93,7 +94,7 @@ SegmentManager<SegmentType>::getSegmentMappings(const posix::PosixUser& user) no
                        return mapping.m_startAddress == segment.getSharedMemoryObject().getBaseAddress();
                    }) == mappingContainer.end())
             {
-                mappingContainer.emplace_back("/" + segment.getWriterGroup().getName(),
+                mappingContainer.emplace_back(segment.getWriterGroup().getName(),
                                               segment.getSharedMemoryObject().getBaseAddress(),
                                               segment.getSharedMemoryObject().getSizeInBytes(),
                                               false,

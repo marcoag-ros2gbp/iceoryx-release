@@ -16,8 +16,8 @@
 #ifndef IOX_POSH_MEPOO_MEPOO_CONFIG_HPP
 #define IOX_POSH_MEPOO_MEPOO_CONFIG_HPP
 
+#include "iceoryx_hoofs/cxx/vector.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
-#include "iceoryx_utils/cxx/vector.hpp"
 
 #include <cstdint>
 
@@ -48,7 +48,7 @@ struct MePooConfig
     MePooConfigContainerType m_mempoolConfig;
 
     /// @brief Default constructor to set the configuration for memory pools
-    MePooConfig() = default;
+    MePooConfig() noexcept = default;
 
     /// @brief Get function for receiving memory pool configuration
     /// @return cxx::vector of config information size and count of chunks

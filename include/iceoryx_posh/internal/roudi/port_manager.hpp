@@ -1,5 +1,5 @@
 // Copyright (c) 2019 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,14 +17,21 @@
 #ifndef IOX_POSH_ROUDI_PORT_MANAGER_HPP
 #define IOX_POSH_ROUDI_PORT_MANAGER_HPP
 
+#include "iceoryx_hoofs/cxx/optional.hpp"
+#include "iceoryx_hoofs/cxx/type_traits.hpp"
+#include "iceoryx_hoofs/internal/posix_wrapper/shared_memory_object.hpp"
+#include "iceoryx_hoofs/posix_wrapper/posix_access_rights.hpp"
 #include "iceoryx_posh/iceoryx_posh_config.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
 #include "iceoryx_posh/internal/capro/capro_message.hpp"
 #include "iceoryx_posh/internal/mepoo/memory_manager.hpp"
-#include "iceoryx_posh/internal/popo/ports/application_port.hpp"
+#include "iceoryx_posh/internal/popo/ports/client_port_roudi.hpp"
+#include "iceoryx_posh/internal/popo/ports/client_port_user.hpp"
 #include "iceoryx_posh/internal/popo/ports/interface_port.hpp"
 #include "iceoryx_posh/internal/popo/ports/publisher_port_roudi.hpp"
 #include "iceoryx_posh/internal/popo/ports/publisher_port_user.hpp"
+#include "iceoryx_posh/internal/popo/ports/server_port_roudi.hpp"
+#include "iceoryx_posh/internal/popo/ports/server_port_user.hpp"
 #include "iceoryx_posh/internal/popo/ports/subscriber_port_multi_producer.hpp"
 #include "iceoryx_posh/internal/popo/ports/subscriber_port_single_producer.hpp"
 #include "iceoryx_posh/internal/popo/ports/subscriber_port_user.hpp"
@@ -38,10 +45,6 @@
 #include "iceoryx_posh/roudi/memory/roudi_memory_interface.hpp"
 #include "iceoryx_posh/roudi/port_pool.hpp"
 #include "iceoryx_posh/runtime/port_config_info.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
-#include "iceoryx_utils/cxx/type_traits.hpp"
-#include "iceoryx_utils/internal/posix_wrapper/shared_memory_object.hpp"
-#include "iceoryx_utils/posix_wrapper/posix_access_rights.hpp"
 
 #include <mutex>
 
@@ -57,7 +60,7 @@ class PortManager
     using PortConfigInfo = iox::runtime::PortConfigInfo;
     PortManager(RouDiMemoryInterface* roudiMemoryInterface) noexcept;
 
-    virtual ~PortManager() = default;
+    virtual ~PortManager() noexcept = default;
 
     /// @todo Remove this later
     void stopPortIntrospection() noexcept;
@@ -71,17 +74,48 @@ class PortManager
                              mepoo::MemoryManager* const payloadDataSegmentMemoryManager,
                              const PortConfigInfo& portConfigInfo) noexcept;
 
+    PublisherPortRouDiType::MemberType_t*
+    acquireInternalPublisherPortData(const capro::ServiceDescription& service,
+                                     const popo::PublisherOptions& publisherOptions,
+                                     mepoo::MemoryManager* const payloadDataSegmentMemoryManager) noexcept;
+
     cxx::expected<SubscriberPortType::MemberType_t*, PortPoolError>
     acquireSubscriberPortData(const capro::ServiceDescription& service,
                               const popo::SubscriberOptions& subscriberOptions,
                               const RuntimeName_t& runtimeName,
                               const PortConfigInfo& portConfigInfo) noexcept;
 
+    /// @brief Acquires a ClientPortData for further usage
+    /// @param[in] service is the ServiceDescription for the new client port
+    /// @param[in] clientOptions for the new client port
+    /// @param[in] runtimeName of the runtime the new client port belongs to
+    /// @param[in] payloadDataSegmentMemoryManager to acquire chunks for the requests
+    /// @param[in] portConfigInfo for the new client port
+    /// @return on success a pointer to a ClientPortData; on error a PortPoolError
+    cxx::expected<popo::ClientPortData*, PortPoolError>
+    acquireClientPortData(const capro::ServiceDescription& service,
+                          const popo::ClientOptions& clientOptions,
+                          const RuntimeName_t& runtimeName,
+                          mepoo::MemoryManager* const payloadDataSegmentMemoryManager,
+                          const PortConfigInfo& portConfigInfo) noexcept;
+
+    /// @brief Acquires a ServerPortData for further usage
+    /// @param[in] service is the ServiceDescription for the new server port
+    /// @param[in] serverOptions for the new server port
+    /// @param[in] runtimeName of the runtime the new server port belongs to
+    /// @param[in] payloadDataSegmentMemoryManager to acquire chunks for the requests
+    /// @param[in] portConfigInfo for the new server port
+    /// @return on success a pointer to a ServerPortData; on error a PortPoolError
+    cxx::expected<popo::ServerPortData*, PortPoolError>
+    acquireServerPortData(const capro::ServiceDescription& service,
+                          const popo::ServerOptions& serverOptions,
+                          const RuntimeName_t& runtimeName,
+                          mepoo::MemoryManager* const payloadDataSegmentMemoryManager,
+                          const PortConfigInfo& portConfigInfo) noexcept;
+
     popo::InterfacePortData* acquireInterfacePortData(capro::Interfaces interface,
                                                       const RuntimeName_t& runtimeName,
                                                       const NodeName_t& nodeName = {""}) noexcept;
-
-    popo::ApplicationPortData* acquireApplicationPortData(const RuntimeName_t& runtimeName) noexcept;
 
     cxx::expected<runtime::NodeData*, PortPoolError> acquireNodeData(const RuntimeName_t& runtimeName,
                                                                      const NodeName_t& nodeName) noexcept;
@@ -98,9 +132,6 @@ class PortManager
 
     void deletePortsOfProcess(const RuntimeName_t& runtimeName) noexcept;
 
-    const std::atomic<uint64_t>* serviceRegistryChangeCounter() noexcept;
-    runtime::IpcMessage findService(const capro::ServiceDescription& service) noexcept;
-
   protected:
     void makeAllPublisherPortsToStopOffer() noexcept;
 
@@ -116,13 +147,28 @@ class PortManager
 
     void doDiscoveryForSubscriberPort(SubscriberPortType& subscriberPort) noexcept;
 
-    void handleInterfaces() noexcept;
+    void destroyClientPort(popo::ClientPortData* const clientPortData) noexcept;
 
-    void handleApplications() noexcept;
+    void handleClientPorts() noexcept;
+
+    void doDiscoveryForClientPort(popo::ClientPortRouDi& clientPort) noexcept;
+
+    void makeAllServerPortsToStopOffer() noexcept;
+
+    void destroyServerPort(popo::ServerPortData* const clientPortData) noexcept;
+
+    void handleServerPorts() noexcept;
+
+    void doDiscoveryForServerPort(popo::ServerPortRouDi& serverPort) noexcept;
+
+    void handleInterfaces() noexcept;
 
     void handleNodes() noexcept;
 
     void handleConditionVariables() noexcept;
+
+    bool isCompatiblePubSub(const PublisherPortRouDiType& publisher,
+                            const SubscriberPortType& subscriber) const noexcept;
 
     bool sendToAllMatchingPublisherPorts(const capro::CaproMessage& message,
                                          SubscriberPortType& subscriberSource) noexcept;
@@ -130,24 +176,55 @@ class PortManager
     void sendToAllMatchingSubscriberPorts(const capro::CaproMessage& message,
                                           PublisherPortRouDiType& publisherSource) noexcept;
 
+    bool isCompatibleClientServer(const popo::ServerPortRouDi& server,
+                                  const popo::ClientPortRouDi& client) const noexcept;
+
+    void sendToAllMatchingClientPorts(const capro::CaproMessage& message, popo::ServerPortRouDi& serverSource) noexcept;
+
+    bool sendToAllMatchingServerPorts(const capro::CaproMessage& message, popo::ClientPortRouDi& clientSource) noexcept;
+
     void sendToAllMatchingInterfacePorts(const capro::CaproMessage& message) noexcept;
 
-    void addEntryToServiceRegistry(const capro::IdString_t& service, const capro::IdString_t& instance) noexcept;
-    void removeEntryFromServiceRegistry(const capro::IdString_t& service, const capro::IdString_t& instance) noexcept;
+    void addPublisherToServiceRegistry(const capro::ServiceDescription& service) noexcept;
+    void removePublisherFromServiceRegistry(const capro::ServiceDescription& service) noexcept;
+
+    void addServerToServiceRegistry(const capro::ServiceDescription& service) noexcept;
+    void removeServerFromServiceRegistry(const capro::ServiceDescription& service) noexcept;
 
     template <typename T, std::enable_if_t<std::is_same<T, iox::build::OneToManyPolicy>::value>* = nullptr>
-    cxx::optional<RuntimeName_t>
-    doesViolateCommunicationPolicy(const capro::ServiceDescription& service) const noexcept;
+    cxx::optional<RuntimeName_t> doesViolateCommunicationPolicy(const capro::ServiceDescription& service) noexcept;
 
     template <typename T, std::enable_if_t<std::is_same<T, iox::build::ManyToManyPolicy>::value>* = nullptr>
     cxx::optional<RuntimeName_t>
-    doesViolateCommunicationPolicy(const capro::ServiceDescription& service IOX_MAYBE_UNUSED) const noexcept;
+    doesViolateCommunicationPolicy(const capro::ServiceDescription& service IOX_MAYBE_UNUSED) noexcept;
+
+    bool isInternal(const capro::ServiceDescription& service) const noexcept;
+
+    void publishServiceRegistry() const noexcept;
+
+    const ServiceRegistry& serviceRegistry() const noexcept;
 
   private:
     RouDiMemoryInterface* m_roudiMemoryInterface{nullptr};
     PortPool* m_portPool{nullptr};
     ServiceRegistry m_serviceRegistry;
     PortIntrospectionType m_portIntrospection;
+    cxx::vector<capro::ServiceDescription, NUMBER_OF_INTERNAL_PUBLISHERS> m_internalServices;
+    cxx::optional<PublisherPortRouDiType::MemberType_t*> m_serviceRegistryPublisherPortData;
+
+    // some ports for the service registry requires special handling
+    // as we cannot send registry information if it was not created yet
+    cxx::expected<PublisherPortRouDiType::MemberType_t*, PortPoolError>
+    acquirePublisherPortDataWithoutDiscovery(const capro::ServiceDescription& service,
+                                             const popo::PublisherOptions& publisherOptions,
+                                             const RuntimeName_t& runtimeName,
+                                             mepoo::MemoryManager* const payloadDataSegmentMemoryManager,
+                                             const PortConfigInfo& portConfigInfo) noexcept;
+
+    PublisherPortRouDiType::MemberType_t* acquireInternalPublisherPortDataWithoutDiscovery(
+        const capro::ServiceDescription& service,
+        const popo::PublisherOptions& publisherOptions,
+        mepoo::MemoryManager* const payloadDataSegmentMemoryManager) noexcept;
 };
 } // namespace roudi
 } // namespace iox

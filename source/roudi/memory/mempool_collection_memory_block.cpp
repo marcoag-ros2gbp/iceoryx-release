@@ -19,9 +19,9 @@
 
 #include "iceoryx_posh/internal/mepoo/memory_manager.hpp"
 
-#include "iceoryx_utils/cxx/algorithm.hpp"
-#include "iceoryx_utils/internal/concurrent/loffli.hpp"
-#include "iceoryx_utils/internal/posix_wrapper/shared_memory_object/allocator.hpp"
+#include "iceoryx_hoofs/cxx/algorithm.hpp"
+#include "iceoryx_hoofs/internal/concurrent/loffli.hpp"
+#include "iceoryx_hoofs/internal/posix_wrapper/shared_memory_object/allocator.hpp"
 
 namespace iox
 {
@@ -50,7 +50,7 @@ uint64_t MemPoolCollectionMemoryBlock::alignment() const noexcept
     return algorithm::max(static_cast<uint64_t>(alignof(mepoo::MemoryManager)), memPoolAlignment);
 }
 
-void MemPoolCollectionMemoryBlock::memoryAvailable(void* memory) noexcept
+void MemPoolCollectionMemoryBlock::onMemoryAvailable(cxx::not_null<void*> memory) noexcept
 {
     posix::Allocator allocator(memory, size());
     auto memoryManager = allocator.allocate(sizeof(mepoo::MemoryManager), alignof(mepoo::MemoryManager));

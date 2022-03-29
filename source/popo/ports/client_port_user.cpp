@@ -1,5 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,11 +21,10 @@ namespace iox
 {
 namespace popo
 {
-ClientPortUser::ClientPortUser(cxx::not_null<MemberType_t* const> clientPortDataPtr) noexcept
-    : BasePort(clientPortDataPtr)
+ClientPortUser::ClientPortUser(MemberType_t& clientPortData) noexcept
+    : BasePort(&clientPortData)
     , m_chunkSender(&getMembers()->m_chunkSenderData)
     , m_chunkReceiver(&getMembers()->m_chunkReceiverData)
-
 {
 }
 
@@ -40,29 +39,75 @@ ClientPortUser::MemberType_t* ClientPortUser::getMembers() noexcept
 }
 
 cxx::expected<RequestHeader*, AllocationError>
-ClientPortUser::allocateRequest(const uint32_t /*userPayloadSize*/) noexcept
+ClientPortUser::allocateRequest(const uint32_t userPayloadSize, const uint32_t userPayloadAlignment) noexcept
 {
-    return cxx::error<AllocationError>(AllocationError::RUNNING_OUT_OF_CHUNKS);
+    auto allocateResult = m_chunkSender.tryAllocate(
+        getUniqueID(), userPayloadSize, userPayloadAlignment, sizeof(RequestHeader), alignof(RequestHeader));
+
+    if (allocateResult.has_error())
+    {
+        return cxx::error<AllocationError>(allocateResult.get_error());
+    }
+
+    auto* requestHeader = new (allocateResult.value()->userHeader())
+        RequestHeader(getMembers()->m_chunkReceiverData.m_uniqueId, RpcBaseHeader::UNKNOWN_CLIENT_QUEUE_INDEX);
+
+    return cxx::success<RequestHeader*>(requestHeader);
 }
 
-void ClientPortUser::freeRequest(RequestHeader* const /*requestHeader*/) noexcept
+void ClientPortUser::releaseRequest(const RequestHeader* const requestHeader) noexcept
 {
-    /// @todo
+    if (requestHeader != nullptr)
+    {
+        m_chunkSender.release(requestHeader->getChunkHeader());
+    }
+    else
+    {
+        errorHandler(Error::kPOPO__CLIENT_PORT_INVALID_REQUEST_TO_FREE_FROM_USER, nullptr, ErrorLevel::SEVERE);
+    }
 }
 
-void ClientPortUser::sendRequest(RequestHeader* const /*requestHeader*/) noexcept
+cxx::expected<ClientSendError> ClientPortUser::sendRequest(RequestHeader* const requestHeader) noexcept
 {
-    /// @todo
+    if (requestHeader == nullptr)
+    {
+        LogError() << "Attempted to send a nullptr request!";
+        errorHandler(Error::kPOPO__CLIENT_PORT_INVALID_REQUEST_TO_SEND_FROM_USER, nullptr, ErrorLevel::SEVERE);
+        return cxx::error<ClientSendError>(ClientSendError::INVALID_REQUEST);
+    }
+
+    const auto connectRequested = getMembers()->m_connectRequested.load(std::memory_order_relaxed);
+    if (!connectRequested)
+    {
+        releaseRequest(requestHeader);
+        LogWarn() << "Try to send request without being connected!";
+        return cxx::error<ClientSendError>(ClientSendError::NO_CONNECT_REQUESTED);
+    }
+
+    auto numberOfReceiver = m_chunkSender.send(requestHeader->getChunkHeader());
+    if (numberOfReceiver == 0U)
+    {
+        LogWarn() << "Try to send request but server is not available!";
+        return cxx::error<ClientSendError>(ClientSendError::SERVER_NOT_AVAILABLE);
+    }
+
+    return cxx::success<void>();
 }
 
 void ClientPortUser::connect() noexcept
 {
-    /// @todo
+    if (!getMembers()->m_connectRequested.load(std::memory_order_relaxed))
+    {
+        getMembers()->m_connectRequested.store(true, std::memory_order_relaxed);
+    }
 }
 
 void ClientPortUser::disconnect() noexcept
 {
-    /// @todo
+    if (getMembers()->m_connectRequested.load(std::memory_order_relaxed))
+    {
+        getMembers()->m_connectRequested.store(false, std::memory_order_relaxed);
+    }
 }
 
 ConnectionState ClientPortUser::getConnectionState() const noexcept
@@ -70,15 +115,34 @@ ConnectionState ClientPortUser::getConnectionState() const noexcept
     return getMembers()->m_connectionState;
 }
 
-cxx::expected<cxx::optional<const ResponseHeader*>, ChunkReceiveResult> ClientPortUser::getResponse() noexcept
+cxx::expected<const ResponseHeader*, ChunkReceiveResult> ClientPortUser::getResponse() noexcept
 {
-    /// @todo
-    return cxx::success<cxx::optional<const ResponseHeader*>>(cxx::nullopt_t());
+    auto getChunkResult = m_chunkReceiver.tryGet();
+
+    if (getChunkResult.has_error())
+    {
+        return cxx::error<ChunkReceiveResult>(getChunkResult.get_error());
+    }
+
+    return cxx::success<const ResponseHeader*>(
+        static_cast<const ResponseHeader*>(getChunkResult.value()->userHeader()));
 }
 
-void ClientPortUser::releaseResponse(const ResponseHeader* const /*responseHeader*/) noexcept
+void ClientPortUser::releaseResponse(const ResponseHeader* const responseHeader) noexcept
 {
-    /// @todo
+    if (responseHeader != nullptr)
+    {
+        m_chunkReceiver.release(responseHeader->getChunkHeader());
+    }
+    else
+    {
+        errorHandler(Error::kPOPO__CLIENT_PORT_INVALID_RESPONSE_TO_RELEASE_FROM_USER, nullptr, ErrorLevel::SEVERE);
+    }
+}
+
+void ClientPortUser::releaseQueuedResponses() noexcept
+{
+    m_chunkReceiver.clear();
 }
 
 bool ClientPortUser::hasNewResponses() const noexcept

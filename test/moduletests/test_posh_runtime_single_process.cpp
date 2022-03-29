@@ -20,14 +20,13 @@
 
 #include "test.hpp"
 
+namespace
+{
 using namespace ::testing;
 using namespace iox::runtime;
 using namespace iox::roudi;
+using namespace iox;
 
-namespace iox
-{
-namespace test
-{
 /// @brief Test goal: This test suit verifies class posh_runtime_single_process
 
 class PoshRuntimeSingleProcess_test : public Test
@@ -48,36 +47,38 @@ class PoshRuntimeSingleProcess_test : public Test
 
 TEST_F(PoshRuntimeSingleProcess_test, ConstructorPoshRuntimeSingleProcessIsSuccess)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "9faf7053-86af-4d26-b3a7-fb3c6319ab86");
     iox::RouDiConfig_t defaultRouDiConfig = iox::RouDiConfig_t().setDefaults();
-    IceOryxRouDiComponents roudiComponents(defaultRouDiConfig);
+    std::unique_ptr<IceOryxRouDiComponents> roudiComponents{new IceOryxRouDiComponents(defaultRouDiConfig)};
 
-    RouDi roudi(roudiComponents.rouDiMemoryManager,
-                roudiComponents.portManager,
-                RouDi::RoudiStartupParameters{iox::roudi::MonitoringMode::OFF, false});
+    std::unique_ptr<RouDi> roudi{new RouDi(roudiComponents->rouDiMemoryManager,
+                                           roudiComponents->portManager,
+                                           RouDi::RoudiStartupParameters{iox::roudi::MonitoringMode::OFF, false})};
 
-    const RuntimeName_t m_runtimeName{"App"};
+    const RuntimeName_t runtimeName{"App"};
 
-    EXPECT_NO_FATAL_FAILURE({ PoshRuntimeSingleProcess m_runtimeSingleProcess(m_runtimeName); });
+    EXPECT_NO_FATAL_FAILURE(
+        { std::unique_ptr<PoshRuntimeSingleProcess> sut{new PoshRuntimeSingleProcess(runtimeName)}; });
 }
 
 TEST_F(PoshRuntimeSingleProcess_test, ConstructorPoshRuntimeSingleProcessMultipleProcessIsFound)
 {
-    RouDiEnvironment m_roudiEnv{iox::RouDiConfig_t().setDefaults()};
+    ::testing::Test::RecordProperty("TEST_ID", "1cc7ad5d-5878-454a-94ba-5cf412c22682");
+    RouDiEnvironment roudiEnv{iox::RouDiConfig_t().setDefaults()};
 
-    const RuntimeName_t m_runtimeName{"App"};
+    const RuntimeName_t runtimeName{"App"};
 
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::SetTemporaryErrorHandler(
+    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
         [&detectedError](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
             detectedError.emplace(error);
             EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::FATAL));
         });
 
-    PoshRuntimeSingleProcess m_runtimeSingleProcess(m_runtimeName);
+    std::unique_ptr<PoshRuntimeSingleProcess> sut{new PoshRuntimeSingleProcess(runtimeName)};
 
     ASSERT_THAT(detectedError.has_value(), Eq(true));
     EXPECT_THAT(detectedError.value(), Eq(iox::Error::kPOSH__RUNTIME_IS_CREATED_MULTIPLE_TIMES));
 }
 
-} // namespace test
-} // namespace iox
+} // namespace

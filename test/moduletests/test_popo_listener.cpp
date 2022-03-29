@@ -15,16 +15,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 
+#include "iceoryx_hoofs/cxx/optional.hpp"
+#include "iceoryx_hoofs/cxx/vector.hpp"
+#include "iceoryx_hoofs/internal/concurrent/smart_lock.hpp"
+#include "iceoryx_hoofs/posix_wrapper/semaphore.hpp"
+#include "iceoryx_hoofs/testing/timing_test.hpp"
+#include "iceoryx_hoofs/testing/watch_dog.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/condition_variable_data.hpp"
 #include "iceoryx_posh/popo/listener.hpp"
 #include "iceoryx_posh/popo/user_trigger.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
-#include "iceoryx_utils/cxx/vector.hpp"
-#include "iceoryx_utils/internal/concurrent/smart_lock.hpp"
-#include "iceoryx_utils/posix_wrapper/semaphore.hpp"
-#include "iceoryx_utils/testing/timing_test.hpp"
-#include "iceoryx_utils/testing/watch_dog.hpp"
 #include "test.hpp"
 
 #include <array>
@@ -32,8 +32,10 @@
 #include <memory>
 #include <thread>
 
+namespace
+{
 using namespace ::testing;
-using ::testing::Return;
+
 using namespace iox::popo;
 using namespace iox::cxx;
 using namespace iox::units::duration_literals;
@@ -180,7 +182,7 @@ class Listener_test : public Test
 
     static void attachCallback(SimpleEventClass* const) noexcept
     {
-        for (auto& e : g_toBeAttached.GetCopy())
+        for (auto& e : g_toBeAttached.getCopy())
         {
             ASSERT_FALSE(e.sut
                              ->attachEvent(*e.object,
@@ -192,7 +194,7 @@ class Listener_test : public Test
 
     static void detachCallback(SimpleEventClass* const) noexcept
     {
-        for (auto& e : g_toBeDetached.GetCopy())
+        for (auto& e : g_toBeDetached.getCopy())
         {
             e.sut->detachEvent(*e.object, SimpleEvent::StoepselBachelorParty);
         }
@@ -200,7 +202,7 @@ class Listener_test : public Test
 
     static void notifyAndThenDetachStoepselCallback(SimpleEventClass* const) noexcept
     {
-        for (auto& e : g_toBeDetached.GetCopy())
+        for (auto& e : g_toBeDetached.getCopy())
         {
             e.object->triggerStoepsel();
             e.sut->detachEvent(*e.object, SimpleEvent::StoepselBachelorParty);
@@ -318,16 +320,19 @@ struct AttachEvent<0U>
 //////////////////////////////////
 TEST_F(Listener_test, CapacityIsEqualToMAX_NUMBER_OF_EVENTS_PER_LISTENER)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "1139a55e-d48c-4076-8616-be71e6b69c0a");
     EXPECT_THAT(m_sut->capacity(), Eq(iox::MAX_NUMBER_OF_EVENTS_PER_LISTENER));
 }
 
 TEST_F(Listener_test, IsEmptyWhenConstructed)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "9d0e1023-a8bf-42b5-a03e-c3ea764fd934");
     EXPECT_THAT(m_sut->size(), Eq(0U));
 }
 
 TEST_F(Listener_test, AttachingWithoutEnumIfEnoughSpaceAvailableWorks)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "42f0fdf5-9218-4f50-927a-8bcad4e7065f");
     EXPECT_FALSE(m_sut->attachEvent(m_simpleEvents[0U], createNotificationCallback(Listener_test::triggerCallback<0U>))
                      .has_error());
     EXPECT_THAT(m_sut->size(), Eq(1U));
@@ -335,12 +340,14 @@ TEST_F(Listener_test, AttachingWithoutEnumIfEnoughSpaceAvailableWorks)
 
 TEST_F(Listener_test, AttachWithoutEnumTillCapacityIsFullWorks)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "da15361c-cb03-45c7-a8ea-feff753d2d0f");
     fillUpWithSimpleEvents();
     EXPECT_THAT(m_sut->size(), Eq(m_sut->capacity()));
 }
 
 TEST_F(Listener_test, DetachDecreasesSize)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "f35060a7-88f6-4df2-8a77-a27bb1214252");
     fillUpWithSimpleEvents();
     m_sut->detachEvent(m_simpleEvents[0U]);
     EXPECT_THAT(m_sut->size(), Eq(m_sut->capacity() - 1U));
@@ -348,6 +355,7 @@ TEST_F(Listener_test, DetachDecreasesSize)
 
 TEST_F(Listener_test, AttachWithoutEnumOneMoreThanCapacityFails)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "e51317c2-4007-4531-9666-2edbe02c9da3");
     fillUpWithSimpleEvents();
     auto result = m_sut->attachEvent(m_simpleEvents[m_sut->capacity()],
                                      createNotificationCallback(Listener_test::triggerCallback<0U>));
@@ -358,6 +366,7 @@ TEST_F(Listener_test, AttachWithoutEnumOneMoreThanCapacityFails)
 
 TEST_F(Listener_test, AttachingWithEnumIfEnoughSpaceAvailableWorks)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "b41bdfd6-ef04-47cd-9bf3-dfbf6424aea8");
     EXPECT_FALSE(m_sut
                      ->attachEvent(m_simpleEvents[0U],
                                    SimpleEvent::Hypnotoad,
@@ -368,11 +377,13 @@ TEST_F(Listener_test, AttachingWithEnumIfEnoughSpaceAvailableWorks)
 
 TEST_F(Listener_test, AttachWithEnumTillCapacityIsFullWorks)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "05eea314-75f0-40c8-ac97-81094556c974");
     EXPECT_TRUE(fillUpWithSimpleEventsWithEnum(SimpleEvent::Hypnotoad));
 }
 
 TEST_F(Listener_test, AttachWithEnumOneMoreThanCapacityFails)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "56c0e83d-fa47-4952-b8d7-24b044381668");
     fillUpWithSimpleEventsWithEnum(SimpleEvent::Hypnotoad);
     auto result = m_sut->attachEvent(m_simpleEvents[m_sut->capacity()],
                                      SimpleEvent::Hypnotoad,
@@ -384,6 +395,7 @@ TEST_F(Listener_test, AttachWithEnumOneMoreThanCapacityFails)
 
 TEST_F(Listener_test, DetachMakesSpaceForAnotherAttachWithEventEnum)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "66b44835-f9af-404d-86be-cda891785180");
     fillUpWithSimpleEventsWithEnum(SimpleEvent::Hypnotoad);
 
     m_sut->detachEvent(m_simpleEvents[0U], SimpleEvent::Hypnotoad);
@@ -396,6 +408,7 @@ TEST_F(Listener_test, DetachMakesSpaceForAnotherAttachWithEventEnum)
 
 TEST_F(Listener_test, DetachMakesSpaceForAnotherAttachWithoutEventEnum)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "f2632526-7d9c-48cc-8fb8-5579ef1f9bad");
     fillUpWithSimpleEvents();
 
     m_sut->detachEvent(m_simpleEvents[0U]);
@@ -407,6 +420,7 @@ TEST_F(Listener_test, DetachMakesSpaceForAnotherAttachWithoutEventEnum)
 
 TEST_F(Listener_test, AttachingEventWithoutEventTypeLeadsToAttachedNoEventEnumTriggerHandle)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "02963e32-50d5-48b1-a938-8064598cc589");
     ASSERT_FALSE(m_sut->attachEvent(m_simpleEvents[0U], createNotificationCallback(Listener_test::triggerCallback<0U>))
                      .has_error());
     EXPECT_TRUE(m_simpleEvents[0U].m_handleNoEventEnum.isValid());
@@ -414,6 +428,7 @@ TEST_F(Listener_test, AttachingEventWithoutEventTypeLeadsToAttachedNoEventEnumTr
 
 TEST_F(Listener_test, AttachingEventWithEventTypeLeadsToAttachedTriggerHandle)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "841ca69d-c092-49f9-8c5a-27f83e7c451e");
     ASSERT_FALSE(m_sut
                      ->attachEvent(m_simpleEvents[0U],
                                    SimpleEvent::StoepselBachelorParty,
@@ -424,6 +439,7 @@ TEST_F(Listener_test, AttachingEventWithEventTypeLeadsToAttachedTriggerHandle)
 
 TEST_F(Listener_test, OverridingAlreadyAttachedEventWithEnumFails)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "333cd1de-76d5-4b96-9dca-f8a25c928a5b");
     ASSERT_FALSE(m_sut
                      ->attachEvent(m_simpleEvents[0U],
                                    SimpleEvent::StoepselBachelorParty,
@@ -439,6 +455,7 @@ TEST_F(Listener_test, OverridingAlreadyAttachedEventWithEnumFails)
 
 TEST_F(Listener_test, OverridingAlreadyAttachedEventWithoutEnumFails)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "33129abd-fb5c-48d7-a6ad-75b68161aa24");
     ASSERT_FALSE(m_sut->attachEvent(m_simpleEvents[0U], createNotificationCallback(Listener_test::triggerCallback<0U>))
                      .has_error());
 
@@ -450,6 +467,7 @@ TEST_F(Listener_test, OverridingAlreadyAttachedEventWithoutEnumFails)
 
 TEST_F(Listener_test, AttachingSameClassWithTwoDifferentEventsWorks)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "83ee5edb-e426-4c76-a181-1613c3039151");
     ASSERT_FALSE(m_sut
                      ->attachEvent(m_simpleEvents[0U],
                                    SimpleEvent::Hypnotoad,
@@ -463,8 +481,33 @@ TEST_F(Listener_test, AttachingSameClassWithTwoDifferentEventsWorks)
                      .has_error());
 }
 
+TEST_F(Listener_test, AttachingNullptrCallbackFails)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "d15379e9-9628-4a2e-b80a-e4836c8ec8db");
+    auto empty_callback = createNotificationCallback(attachCallback);
+    empty_callback.m_callback = nullptr;
+    empty_callback.m_contextData = nullptr;
+
+    auto result = m_sut->attachEvent(m_simpleEvents[0U], empty_callback);
+    ASSERT_TRUE(result.has_error());
+    EXPECT_THAT(result.get_error(), Eq(ListenerError::EMPTY_EVENT_CALLBACK));
+}
+
+TEST_F(Listener_test, AttachingNullptrCallbackWithEventFails)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "eba903e2-c7c1-46b2-97c3-0e05c58caca5");
+    auto empty_callback = createNotificationCallback(attachCallback);
+    empty_callback.m_callback = nullptr;
+    empty_callback.m_contextData = nullptr;
+
+    auto result = m_sut->attachEvent(m_simpleEvents[0U], SimpleEvent::StoepselBachelorParty, empty_callback);
+    ASSERT_TRUE(result.has_error());
+    EXPECT_THAT(result.get_error(), Eq(ListenerError::EMPTY_EVENT_CALLBACK));
+}
+
 TEST_F(Listener_test, DetachingSameClassWithDifferentEventEnumChangesNothing)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "9f97ac76-f7d4-4353-94df-8b3ec9fefcc7");
     ASSERT_FALSE(m_sut
                      ->attachEvent(m_simpleEvents[0U],
                                    SimpleEvent::Hypnotoad,
@@ -477,6 +520,7 @@ TEST_F(Listener_test, DetachingSameClassWithDifferentEventEnumChangesNothing)
 
 TEST_F(Listener_test, DetachingDifferentClassWithSameEventEnumChangesNothing)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "64760cc1-7d65-4c2c-a6f1-83db62c2b18a");
     ASSERT_FALSE(m_sut
                      ->attachEvent(m_simpleEvents[0U],
                                    SimpleEvent::Hypnotoad,
@@ -489,6 +533,7 @@ TEST_F(Listener_test, DetachingDifferentClassWithSameEventEnumChangesNothing)
 
 TEST_F(Listener_test, AttachingWithoutEnumTillCapacityFilledSetsUpNoEventEnumTriggerHandle)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "9dd3c485-c129-4d57-8318-50c6bec17888");
     fillUpWithSimpleEvents();
 
     for (uint64_t i = 0U; i < m_sut->capacity(); ++i)
@@ -499,6 +544,7 @@ TEST_F(Listener_test, AttachingWithoutEnumTillCapacityFilledSetsUpNoEventEnumTri
 
 TEST_F(Listener_test, DTorDetachesAllAttachedEventsWithoutEnum)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "4204bd01-86d1-4213-a020-5d58e4173d70");
     fillUpWithSimpleEvents();
 
     auto capacity = m_sut->capacity();
@@ -512,6 +558,7 @@ TEST_F(Listener_test, DTorDetachesAllAttachedEventsWithoutEnum)
 
 TEST_F(Listener_test, DTorDetachesAllAttachedEventsWithEnum)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "1bd485f3-a634-473a-8f6b-fd344de10a85");
     fillUpWithSimpleEventsWithEnum(SimpleEvent::Hypnotoad);
 
     auto capacity = m_sut->capacity();
@@ -525,6 +572,7 @@ TEST_F(Listener_test, DTorDetachesAllAttachedEventsWithEnum)
 
 TEST_F(Listener_test, AttachedEventDTorDetachesItself)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "198f5c98-5d65-4c16-8201-86d47f1d23e6");
     {
         SimpleEventClass fuu;
         ASSERT_FALSE(
@@ -536,6 +584,7 @@ TEST_F(Listener_test, AttachedEventDTorDetachesItself)
 
 TEST_F(Listener_test, AttachingSimpleEventWithoutEnumSetsNoEventEnumTriggerHandle)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "6a2e5c6f-7b60-47e4-8b29-321584857c57");
     SimpleEventClass fuu;
     ASSERT_FALSE(m_sut->attachEvent(fuu, createNotificationCallback(Listener_test::triggerCallback<0U>)).has_error());
 
@@ -544,6 +593,7 @@ TEST_F(Listener_test, AttachingSimpleEventWithoutEnumSetsNoEventEnumTriggerHandl
 
 TEST_F(Listener_test, DetachingSimpleEventResetsTriggerHandle)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "b0d30f2b-0ad2-46b8-acc1-04416019c50e");
     SimpleEventClass fuu;
     ASSERT_FALSE(m_sut->attachEvent(fuu, createNotificationCallback(Listener_test::triggerCallback<0U>)).has_error());
     m_sut->detachEvent(fuu);
@@ -553,6 +603,7 @@ TEST_F(Listener_test, DetachingSimpleEventResetsTriggerHandle)
 
 TEST_F(Listener_test, AttachingEventWithEnumSetsTriggerHandle)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "350d25da-eb06-48a9-9b47-e23f7dafba53");
     SimpleEventClass fuu;
     ASSERT_FALSE(m_sut
                      ->attachEvent(fuu,
@@ -565,6 +616,7 @@ TEST_F(Listener_test, AttachingEventWithEnumSetsTriggerHandle)
 
 TEST_F(Listener_test, DetachingEventWithEnumResetsTriggerHandle)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "bc51566f-8b10-490b-bba1-a14865d7d07b");
     SimpleEventClass fuu;
     ASSERT_FALSE(m_sut
                      ->attachEvent(fuu,
@@ -578,6 +630,7 @@ TEST_F(Listener_test, DetachingEventWithEnumResetsTriggerHandle)
 
 TEST_F(Listener_test, DetachingNonAttachedEventResetsNothing)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "32deeace-1857-4a52-b3e7-c915037d9950");
     SimpleEventClass fuu;
     ASSERT_FALSE(m_sut
                      ->attachEvent(fuu,
@@ -1160,3 +1213,4 @@ TIMING_TEST_F(Listener_test, AttachingInCallbackWorks, Repeat(5), [&] {
 // END
 //////////////////////////////////
 
+} // namespace

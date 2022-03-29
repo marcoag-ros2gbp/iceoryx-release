@@ -17,13 +17,13 @@
 #ifndef IOX_POSH_ROUDI_ROUDI_CMD_LINE_PARSER_HPP
 #define IOX_POSH_ROUDI_ROUDI_CMD_LINE_PARSER_HPP
 
+#include "iceoryx_hoofs/cxx/expected.hpp"
+#include "iceoryx_hoofs/cxx/optional.hpp"
+#include "iceoryx_hoofs/internal/units/duration.hpp"
+#include "iceoryx_hoofs/log/logcommon.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
 #include "iceoryx_posh/roudi/cmd_line_args.hpp"
 #include "iceoryx_posh/version/compatibility_check_level.hpp"
-#include "iceoryx_utils/cxx/expected.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
-#include "iceoryx_utils/internal/units/duration.hpp"
-#include "iceoryx_utils/log/logcommon.hpp"
 
 namespace iox
 {
@@ -31,7 +31,6 @@ namespace config
 {
 enum class CmdLineParserResult
 {
-    INVALID_STATE,
     UNKNOWN_OPTION_USED,
     INFO_OUTPUT_ONLY /// @todo use this instead of CmdLineArgs_t.run after modularisation of RouDi
 };

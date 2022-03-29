@@ -1,4 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,12 +17,12 @@
 #ifndef IOX_POSH_POPO_PORTS_CLIENT_PORT_ROUDI_HPP
 #define IOX_POSH_POPO_PORTS_CLIENT_PORT_ROUDI_HPP
 
+#include "iceoryx_hoofs/cxx/optional.hpp"
 #include "iceoryx_posh/internal/capro/capro_message.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_receiver.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_sender.hpp"
 #include "iceoryx_posh/internal/popo/ports/base_port.hpp"
 #include "iceoryx_posh/internal/popo/ports/client_port_data.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
 
 namespace iox
 {
@@ -30,19 +31,30 @@ namespace popo
 /// @brief The ClientPortRouDi provides the API for accessing a client port from the RouDi middleware daemon side.
 /// The client port is divided in the three parts ClientPortData, ClientPortRouDi and ClientPortUser.
 /// The ClientPortRouDi provides service discovery functionality that is based on CaPro messages. With this API the
-/// dynamic connections between clients and servers ports can be established
+/// dynamic connections between clients and servers ports can be established.
+/// @note This class is not thread-safe and must be guarded by a mutex if used in a multithreaded context.
 class ClientPortRouDi : public BasePort
 {
   public:
     using MemberType_t = ClientPortData;
 
-    explicit ClientPortRouDi(cxx::not_null<MemberType_t* const> clientPortDataPtr) noexcept;
+    /// @brief Creates a ClientPortRouDi from ClientPortData which are shared with ClientPortUser
+    /// @param[in] clientPortData to be are accessed by the ClientPortRouDi interface
+    explicit ClientPortRouDi(MemberType_t& clientPortData) noexcept;
 
     ClientPortRouDi(const ClientPortRouDi& other) = delete;
     ClientPortRouDi& operator=(const ClientPortRouDi&) = delete;
-    ClientPortRouDi(ClientPortRouDi&& rhs) = default;
-    ClientPortRouDi& operator=(ClientPortRouDi&& rhs) = default;
+    ClientPortRouDi(ClientPortRouDi&& rhs) noexcept = default;
+    ClientPortRouDi& operator=(ClientPortRouDi&& rhs) noexcept = default;
     ~ClientPortRouDi() = default;
+
+    /// @brief Access to the configured responseQueueFullPolicy
+    /// @return the configured responseQueueFullPolicy
+    QueueFullPolicy getResponseQueueFullPolicy() const noexcept;
+
+    /// @brief Access to the configured serverTooSlowPolicy
+    /// @return the configured serverTooSlowPolicy
+    ConsumerTooSlowPolicy getServerTooSlowPolicy() const noexcept;
 
     /// @brief get an optional CaPro message that requests changes to the desired connection state of the client
     /// @return CaPro message with desired connection state, empty optional if no state change
@@ -55,12 +67,25 @@ class ClientPortRouDi : public BasePort
     dispatchCaProMessageAndGetPossibleResponse(const capro::CaproMessage& caProMessage) noexcept;
 
     /// @brief cleanup the client and release all the chunks it currently holds
-    /// Caution: Contract is that user process is no more running when cleanup is called
+    /// @attention Contract is that user process is no more running when cleanup is called
     void releaseAllChunks() noexcept;
 
   private:
     const MemberType_t* getMembers() const noexcept;
     MemberType_t* getMembers() noexcept;
+
+    void handleCaProProtocolViolation(const iox::capro::CaproMessageType messageType) noexcept;
+
+    cxx::optional<capro::CaproMessage>
+    handleCaProMessageForStateNotConnected(const capro::CaproMessage& caProMessage) noexcept;
+    cxx::optional<capro::CaproMessage>
+    handleCaProMessageForStateConnectRequested(const capro::CaproMessage& caProMessage) noexcept;
+    cxx::optional<capro::CaproMessage>
+    handleCaProMessageForStateWaitForOffer(const capro::CaproMessage& caProMessage) noexcept;
+    cxx::optional<capro::CaproMessage>
+    handleCaProMessageForStateConnected(const capro::CaproMessage& caProMessage) noexcept;
+    cxx::optional<capro::CaproMessage>
+    handleCaProMessageForStateDisconnectRequested(const capro::CaproMessage& caProMessage) noexcept;
 
     ChunkSender<ClientChunkSenderData_t> m_chunkSender;
     ChunkReceiver<ClientChunkReceiverData_t> m_chunkReceiver;
