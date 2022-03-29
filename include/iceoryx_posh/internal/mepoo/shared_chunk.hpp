@@ -17,10 +17,10 @@
 #ifndef IOX_POSH_MEPOO_SHARED_CHUNK_HPP
 #define IOX_POSH_MEPOO_SHARED_CHUNK_HPP
 
+#include "iceoryx_hoofs/internal/relocatable_pointer/relative_pointer.hpp"
 #include "iceoryx_posh/internal/mepoo/chunk_management.hpp"
 #include "iceoryx_posh/internal/mepoo/mem_pool.hpp"
 #include "iceoryx_posh/mepoo/chunk_header.hpp"
-#include "iceoryx_utils/internal/relocatable_pointer/relative_pointer.hpp"
 
 namespace iox
 {
@@ -34,7 +34,7 @@ class SharedPointer;
 class SharedChunk
 {
   public:
-    SharedChunk() = default;
+    SharedChunk() noexcept = default;
     SharedChunk(ChunkManagement* const resource) noexcept;
     ~SharedChunk() noexcept;
 

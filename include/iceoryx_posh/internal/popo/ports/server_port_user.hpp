@@ -1,5 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,20 +17,80 @@
 #ifndef IOX_POSH_POPO_PORTS_SERVER_PORT_USER_HPP
 #define IOX_POSH_POPO_PORTS_SERVER_PORT_USER_HPP
 
+#include "iceoryx_hoofs/cxx/expected.hpp"
+#include "iceoryx_hoofs/cxx/helplets.hpp"
+#include "iceoryx_hoofs/cxx/optional.hpp"
+#include "iceoryx_hoofs/error_handling/error_handling.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_receiver.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_sender.hpp"
 #include "iceoryx_posh/internal/popo/ports/base_port.hpp"
 #include "iceoryx_posh/internal/popo/ports/server_port_data.hpp"
 #include "iceoryx_posh/mepoo/chunk_header.hpp"
-#include "iceoryx_utils/cxx/expected.hpp"
-#include "iceoryx_utils/cxx/helplets.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
-#include "iceoryx_utils/error_handling/error_handling.hpp"
+#include "iceoryx_posh/popo/rpc_header.hpp"
 
 namespace iox
 {
 namespace popo
 {
+enum class ServerRequestResult
+{
+    TOO_MANY_REQUESTS_HELD_IN_PARALLEL,
+    NO_PENDING_REQUESTS,
+    UNDEFINED_CHUNK_RECEIVE_ERROR,
+    NO_PENDING_REQUESTS_AND_SERVER_DOES_NOT_OFFER,
+};
+
+/// @brief Converts the ServerRequestResult to a string literal
+/// @param[in] value to convert to a string literal
+/// @return pointer to a string literal
+inline constexpr const char* asStringLiteral(const ServerRequestResult value) noexcept;
+
+/// @brief Convenience stream operator to easily use the `asStringLiteral` function with std::ostream
+/// @param[in] stream sink to write the message to
+/// @param[in] value to convert to a string literal
+/// @return the reference to `stream` which was provided as input parameter
+inline std::ostream& operator<<(std::ostream& stream, ServerRequestResult value) noexcept;
+
+/// @brief Convenience stream operator to easily use the `asStringLiteral` function with iox::log::LogStream
+/// @param[in] stream sink to write the message to
+/// @param[in] value to convert to a string literal
+/// @return the reference to `stream` which was provided as input parameter
+inline log::LogStream& operator<<(log::LogStream& stream, ServerRequestResult value) noexcept;
+} // namespace popo
+
+namespace cxx
+{
+template <>
+constexpr popo::ServerRequestResult
+from<popo::ChunkReceiveResult, popo::ServerRequestResult>(const popo::ChunkReceiveResult value) noexcept;
+} // namespace cxx
+
+namespace popo
+{
+enum class ServerSendError
+{
+    NOT_OFFERED,
+    CLIENT_NOT_AVAILABLE,
+    INVALID_RESPONSE,
+};
+
+/// @brief Converts the ServerSendError to a string literal
+/// @param[in] value to convert to a string literal
+/// @return pointer to a string literal
+inline constexpr const char* asStringLiteral(const ServerSendError value) noexcept;
+
+/// @brief Convenience stream operator to easily use the `asStringLiteral` function with std::ostream
+/// @param[in] stream sink to write the message to
+/// @param[in] value to convert to a string literal
+/// @return the reference to `stream` which was provided as input parameter
+inline std::ostream& operator<<(std::ostream& stream, ServerSendError value) noexcept;
+
+/// @brief Convenience stream operator to easily use the `asStringLiteral` function with iox::log::LogStream
+/// @param[in] stream sink to write the message to
+/// @param[in] value to convert to a string literal
+/// @return the reference to `stream` which was provided as input parameter
+inline log::LogStream& operator<<(log::LogStream& stream, ServerSendError value) noexcept;
+
 /// @brief The ServerPortUser provides the API for accessing a server port from the user side. The server port
 /// is divided in the three parts ServerPortData, ServerPortRouDi and ServerPortUser. The ServerPortUser
 /// uses the functionality of a ChunkSender and ChunReceiver for receiving requests and sending responses.
@@ -41,23 +101,26 @@ class ServerPortUser : public BasePort
   public:
     using MemberType_t = ServerPortData;
 
-    explicit ServerPortUser(cxx::not_null<MemberType_t* const> serverPortDataPtr) noexcept;
+    explicit ServerPortUser(MemberType_t& serverPortData) noexcept;
 
     ServerPortUser(const ServerPortUser& other) = delete;
     ServerPortUser& operator=(const ServerPortUser&) = delete;
-    ServerPortUser(ServerPortUser&& rhs) = default;
-    ServerPortUser& operator=(ServerPortUser&& rhs) = default;
+    ServerPortUser(ServerPortUser&& rhs) noexcept = default;
+    ServerPortUser& operator=(ServerPortUser&& rhs) noexcept = default;
     ~ServerPortUser() = default;
 
     /// @brief Tries to get the next request from the queue. If there is a new one, the ChunkHeader of the oldest
     /// request in the queue is returned (FiFo queue)
-    /// @return optional that has a new chunk header or no value if there are no new requests in the underlying queue,
-    /// ChunkReceiveResult on error
-    cxx::expected<cxx::optional<const RequestHeader*>, ChunkReceiveResult> getRequest() noexcept;
+    /// @return cxx::expected that has a new RequestHeader if there are new requests in the underlying queue,
+    /// ServerRequestResult on error
+    cxx::expected<const RequestHeader*, ServerRequestResult> getRequest() noexcept;
 
     /// @brief Release a request that was obtained with getRequest
     /// @param[in] chunkHeader, pointer to the ChunkHeader to release
     void releaseRequest(const RequestHeader* const requestHeader) noexcept;
+
+    /// @brief Release all the requests that are currently queued up.
+    void releaseQueuedRequests() noexcept;
 
     /// @brief check if there are requests in the queue
     /// @return if there are requests in the queue return true, otherwise false
@@ -69,18 +132,23 @@ class ServerPortUser : public BasePort
 
     /// @brief Allocate a response, the ownerhip of the SharedChunk remains in the ServerPortUser for being able to
     /// cleanup if the user process disappears
+    /// @param[in] requestHeader, the request header for the corresponding response
     /// @param[in] userPayloadSize, size of the user user-paylaod without additional headers
+    /// @param[in] userPayloadAlignment, alignment of the user user-paylaod without additional headers
     /// @return on success pointer to a ChunkHeader which can be used to access the chunk-header, user-header and
     /// user-payload fields, error if not
-    cxx::expected<ResponseHeader*, AllocationError> allocateResponse(const uint32_t userPayloadSize) noexcept;
+    cxx::expected<ResponseHeader*, AllocationError> allocateResponse(const RequestHeader* const requestHeader,
+                                                                     const uint32_t userPayloadSize,
+                                                                     const uint32_t userPayloadAlignment) noexcept;
 
-    /// @brief Free an allocated response without sending it
+    /// @brief Releases an allocated response without sending it
     /// @param[in] chunkHeader, pointer to the ChunkHeader to free
-    void freeResponse(ResponseHeader* const responseHeader) noexcept;
+    void releaseResponse(const ResponseHeader* const responseHeader) noexcept;
 
     /// @brief Send an allocated request chunk to the server port
     /// @param[in] chunkHeader, pointer to the ChunkHeader to send
-    void sendResponse(ResponseHeader* const responseHeader) noexcept;
+    /// @return ServerSendError if sending was not successful
+    cxx::expected<ServerSendError> sendResponse(ResponseHeader* const responseHeader) noexcept;
 
     /// @brief offer this server port in the system
     void offer() noexcept;
@@ -117,5 +185,7 @@ class ServerPortUser : public BasePort
 
 } // namespace popo
 } // namespace iox
+
+#include "iceoryx_posh/internal/popo/ports/server_port_user.inl"
 
 #endif // IOX_POSH_POPO_PORTS_PUBLISHER_PORT_USER_HPP

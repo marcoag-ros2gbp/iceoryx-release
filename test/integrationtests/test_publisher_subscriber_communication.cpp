@@ -1,4 +1,4 @@
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,31 +14,30 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "iceoryx_hoofs/cxx/forward_list.hpp"
+#include "iceoryx_hoofs/cxx/list.hpp"
+#include "iceoryx_hoofs/cxx/optional.hpp"
+#include "iceoryx_hoofs/cxx/stack.hpp"
+#include "iceoryx_hoofs/cxx/string.hpp"
+#include "iceoryx_hoofs/cxx/variant.hpp"
+#include "iceoryx_hoofs/cxx/vector.hpp"
+#include "iceoryx_hoofs/posix_wrapper/semaphore.hpp"
+#include "iceoryx_hoofs/testing/watch_dog.hpp"
 #include "iceoryx_posh/popo/publisher.hpp"
 #include "iceoryx_posh/popo/subscriber.hpp"
 #include "iceoryx_posh/runtime/posh_runtime.hpp"
 #include "iceoryx_posh/testing/roudi_gtest.hpp"
-#include "iceoryx_utils/cxx/forward_list.hpp"
-#include "iceoryx_utils/cxx/list.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
-#include "iceoryx_utils/cxx/stack.hpp"
-#include "iceoryx_utils/cxx/string.hpp"
-#include "iceoryx_utils/cxx/variant.hpp"
-#include "iceoryx_utils/cxx/vector.hpp"
-#include "iceoryx_utils/posix_wrapper/semaphore.hpp"
-#include "iceoryx_utils/testing/watch_dog.hpp"
 
 #include "test.hpp"
 
+namespace
+{
 using namespace ::testing;
-using ::testing::Return;
 
 using namespace iox;
 using namespace iox::popo;
 using namespace iox::cxx;
 
-namespace
-{
 template <typename T>
 struct ComplexDataType
 {
@@ -58,33 +57,269 @@ class PublisherSubscriberCommunication_test : public RouDi_GTest
 
     template <typename T>
     std::unique_ptr<iox::popo::Publisher<T>>
-    createPublisher(const SubscriberTooSlowPolicy policy = SubscriberTooSlowPolicy::DISCARD_OLDEST_DATA)
+    createPublisher(const ConsumerTooSlowPolicy policy = ConsumerTooSlowPolicy::DISCARD_OLDEST_DATA,
+                    const capro::Interfaces interface = capro::Interfaces::INTERNAL)
     {
         iox::popo::PublisherOptions options;
         options.subscriberTooSlowPolicy = policy;
-        return std::make_unique<iox::popo::Publisher<T>>(m_serviceDescription, options);
+        return std::make_unique<iox::popo::Publisher<T>>(
+            capro::ServiceDescription{m_serviceDescription.getServiceIDString(),
+                                      m_serviceDescription.getInstanceIDString(),
+                                      m_serviceDescription.getEventIDString(),
+                                      {0U, 0U, 0U, 0U},
+                                      interface},
+            options);
+    }
+
+    // additional overload for convenient use in the test cases
+    template <typename T>
+    std::unique_ptr<iox::popo::Publisher<T>> createPublisher(const uint64_t historyCapacity)
+    {
+        iox::popo::PublisherOptions options;
+        options.historyCapacity = historyCapacity;
+        return std::make_unique<iox::popo::Publisher<T>>(
+            capro::ServiceDescription{m_serviceDescription.getServiceIDString(),
+                                      m_serviceDescription.getInstanceIDString(),
+                                      m_serviceDescription.getEventIDString(),
+                                      {0U, 0U, 0U, 0U},
+                                      capro::Interfaces::INTERNAL},
+            options);
     }
 
     template <typename T>
     std::unique_ptr<iox::popo::Subscriber<T>>
     createSubscriber(const QueueFullPolicy policy = QueueFullPolicy::DISCARD_OLDEST_DATA,
-                     const uint64_t queueCapacity = SubscriberPortData::ChunkQueueData_t::MAX_CAPACITY)
+                     const uint64_t queueCapacity = SubscriberPortData::ChunkQueueData_t::MAX_CAPACITY,
+                     const capro::Interfaces interface = capro::Interfaces::INTERNAL)
     {
         iox::popo::SubscriberOptions options;
         options.queueFullPolicy = policy;
         options.queueCapacity = queueCapacity;
-        return std::make_unique<iox::popo::Subscriber<T>>(m_serviceDescription, options);
+        return std::make_unique<iox::popo::Subscriber<T>>(
+            capro::ServiceDescription{m_serviceDescription.getServiceIDString(),
+                                      m_serviceDescription.getInstanceIDString(),
+                                      m_serviceDescription.getEventIDString(),
+                                      {0U, 0U, 0U, 0U},
+                                      interface},
+            options);
     }
 
+    // additional overload for convenient use in the test cases
+    template <typename T>
+    std::unique_ptr<iox::popo::Subscriber<T>> createSubscriber(const uint64_t historyRequest,
+                                                               const bool requiresPublisherHistorySupport = false)
+    {
+        iox::popo::SubscriberOptions options;
+        options.historyRequest = historyRequest;
+        options.requiresPublisherHistorySupport = requiresPublisherHistorySupport;
+        return std::make_unique<iox::popo::Subscriber<T>>(
+            capro::ServiceDescription{m_serviceDescription.getServiceIDString(),
+                                      m_serviceDescription.getInstanceIDString(),
+                                      m_serviceDescription.getEventIDString(),
+                                      {0U, 0U, 0U, 0U},
+                                      capro::Interfaces::INTERNAL},
+            options);
+    }
 
     Watchdog m_watchdog{units::Duration::fromSeconds(5)};
     capro::ServiceDescription m_serviceDescription{
         "PublisherSubscriberCommunication", "IntegrationTest", "AllHailHypnotoad"};
 };
-} // namespace
+
+// intentional reference to unique pointer, we do not want to pass ownership in this helper function
+// and at call site we already have unique pointers
+template <typename T>
+void publishAndExpectReceivedData(const std::unique_ptr<iox::popo::Publisher<T>>& pub,
+                                  const std::unique_ptr<iox::popo::Subscriber<T>>& sub,
+                                  T data)
+{
+    ASSERT_FALSE(pub->loan()
+                     .and_then([&](auto& sample) {
+                         *sample = data;
+                         sample.publish();
+                     })
+                     .has_error());
+
+    auto result = sub->take();
+    ASSERT_FALSE(result.has_error());
+    EXPECT_EQ(*result.value().get(), data);
+}
+
+TEST_F(PublisherSubscriberCommunication_test, AllSubscriberInterfacesCanBeSubscribedToPublisherWithInternalInterface)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "aba18b27-bf64-49a7-8ad6-06a84b23a455");
+    auto publisher = createPublisher<int>();
+    this->InterOpWait();
+
+    std::vector<std::unique_ptr<iox::popo::Subscriber<int>>> subscribers;
+    for (uint16_t interface = 0U; interface < static_cast<uint16_t>(capro::Interfaces::INTERFACE_END); ++interface)
+    {
+        subscribers.emplace_back(createSubscriber<int>(QueueFullPolicy::DISCARD_OLDEST_DATA,
+                                                       SubscriberPortData::ChunkQueueData_t::MAX_CAPACITY,
+                                                       static_cast<capro::Interfaces>(interface)));
+    }
+    this->InterOpWait();
+
+    constexpr int TRANSMISSION_DATA = 1337;
+    ASSERT_FALSE(publisher->loan()
+                     .and_then([&](auto& sample) {
+                         *sample = TRANSMISSION_DATA;
+                         sample.publish();
+                     })
+                     .has_error());
+
+    for (auto& subscriber : subscribers)
+    {
+        EXPECT_FALSE(subscriber->take()
+                         .and_then([&](auto& sample) { EXPECT_THAT(*sample, Eq(TRANSMISSION_DATA)); })
+                         .has_error());
+    }
+}
+
+TEST_F(PublisherSubscriberCommunication_test,
+       SubscriberRequiringHistorySupportDoesNotConnectToPublisherWithoutHistorySupport)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "31cbd36d-32f1-4bc7-9980-0cdf5f248035");
+
+    constexpr uint64_t historyRequest = 1;
+    constexpr uint64_t historyCapacity = 0;
+    constexpr bool requiresHistorySupport = true;
+
+    auto publisher = createPublisher<int>(historyCapacity);
+    auto subscriber = createSubscriber<int>(historyRequest, requiresHistorySupport);
+
+    ASSERT_TRUE(publisher);
+    EXPECT_FALSE(publisher->hasSubscribers());
+}
+
+TEST_F(PublisherSubscriberCommunication_test,
+       SubscriberNotRequiringHistorySupportDoesConnectToPublisherWithNoHistorySupport)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "c47f5ebd-044c-480b-a4bb-d700655105ac");
+
+    constexpr uint64_t historyRequest = 1;
+    constexpr uint64_t historyCapacity = 0;
+    constexpr bool requiresHistorySupport = false;
+
+    auto publisher = createPublisher<int>(historyCapacity);
+    auto subscriber = createSubscriber<int>(historyRequest, requiresHistorySupport);
+
+    ASSERT_TRUE(publisher);
+    EXPECT_TRUE(publisher->hasSubscribers());
+
+    publishAndExpectReceivedData(publisher, subscriber, 73);
+}
+
+TEST_F(PublisherSubscriberCommunication_test,
+       SubscriberRequiringHistorySupportDoesConnectToPublisherWithEqualHistorySupport)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "0ca391fe-c4f6-48b5-bd36-96854513c6bb");
+
+    constexpr uint64_t historyRequest = 3;
+    constexpr uint64_t historyCapacity = 3;
+    constexpr bool requiresHistorySupport = true;
+
+    auto publisher = createPublisher<int>(historyCapacity);
+    auto subscriber = createSubscriber<int>(historyRequest, requiresHistorySupport);
+
+    ASSERT_TRUE(publisher);
+    EXPECT_TRUE(publisher->hasSubscribers());
+
+    publishAndExpectReceivedData(publisher, subscriber, 74);
+}
+
+TEST_F(PublisherSubscriberCommunication_test,
+       SubscriberRequiringHistorySupportDoesConnectToPublisherWithLowerHistorySupport)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "46b917e6-75f1-4cd2-8ffa-1c254f3423a7");
+
+    constexpr uint64_t historyRequest = 6;
+    constexpr uint64_t historyCapacity = 5;
+    constexpr bool requiresHistorySupport = true;
+
+    auto publisher = createPublisher<int>(historyCapacity);
+    auto subscriber = createSubscriber<int>(historyRequest, requiresHistorySupport);
+
+    ASSERT_TRUE(publisher);
+    EXPECT_TRUE(publisher->hasSubscribers());
+
+    publishAndExpectReceivedData(publisher, subscriber, 75);
+}
+
+TEST_F(PublisherSubscriberCommunication_test,
+       SubscriberNotRequiringHistorySupportDoesConnectToPublisherWithLowerHistorySupport)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "b672c382-f81b-4cd4-8049-36d2691bb532");
+
+    constexpr uint64_t historyRequest = 3;
+    constexpr uint64_t historyCapacity = 2;
+    constexpr bool requiresHistorySupport = false;
+
+    auto publisher = createPublisher<int>(historyCapacity);
+    auto subscriber = createSubscriber<int>(historyRequest, requiresHistorySupport);
+
+    ASSERT_TRUE(publisher);
+    EXPECT_TRUE(publisher->hasSubscribers());
+
+    publishAndExpectReceivedData(publisher, subscriber, 76);
+}
+
+TEST_F(PublisherSubscriberCommunication_test, SubscriberCanOnlyBeSubscribedWhenInterfaceDiffersFromPublisher)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "c01fa002-84ae-4017-a801-e790a3a04702");
+    for (uint16_t publisherInterface = 0U; publisherInterface < static_cast<uint16_t>(capro::Interfaces::INTERFACE_END);
+         ++publisherInterface)
+    {
+        if (static_cast<capro::Interfaces>(publisherInterface) == capro::Interfaces::INTERNAL)
+        {
+            continue;
+        }
+
+        m_watchdog.watchAndActOnFailure();
+
+        auto publisher = createPublisher<int>(ConsumerTooSlowPolicy::DISCARD_OLDEST_DATA,
+                                              static_cast<capro::Interfaces>(publisherInterface));
+        this->InterOpWait();
+
+        std::vector<std::unique_ptr<iox::popo::Subscriber<int>>> subscribers;
+        for (uint16_t subscriberInterface = 0U;
+             subscriberInterface < static_cast<uint16_t>(capro::Interfaces::INTERFACE_END);
+             ++subscriberInterface)
+        {
+            subscribers.emplace_back(createSubscriber<int>(QueueFullPolicy::DISCARD_OLDEST_DATA,
+                                                           SubscriberPortData::ChunkQueueData_t::MAX_CAPACITY,
+                                                           static_cast<capro::Interfaces>(subscriberInterface)));
+        }
+        this->InterOpWait();
+
+        constexpr int TRANSMISSION_DATA = 1337;
+        ASSERT_FALSE(publisher->loan()
+                         .and_then([&](auto& sample) {
+                             *sample = TRANSMISSION_DATA;
+                             sample.publish();
+                         })
+                         .has_error());
+
+        for (auto& subscriber : subscribers)
+        {
+            if (subscriber->getServiceDescription().getSourceInterface()
+                == static_cast<capro::Interfaces>(publisherInterface))
+            {
+                EXPECT_TRUE(subscriber->take().has_error());
+            }
+            else
+            {
+                EXPECT_FALSE(subscriber->take()
+                                 .and_then([&](auto& sample) { EXPECT_THAT(*sample, Eq(TRANSMISSION_DATA)); })
+                                 .has_error());
+            }
+        }
+    }
+}
 
 TEST_F(PublisherSubscriberCommunication_test, SendingComplexDataType_forward_list)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "97cbebbe-d430-4437-881d-90329e73dd42");
     using Type_t = ComplexDataType<forward_list<string<5>, 5>>;
     auto publisher = createPublisher<Type_t>();
     this->InterOpWait();
@@ -114,6 +349,7 @@ TEST_F(PublisherSubscriberCommunication_test, SendingComplexDataType_forward_lis
 
 TEST_F(PublisherSubscriberCommunication_test, SendingComplexDataType_list)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "4c5fa83a-935d-46ba-8adf-91e1de6acc89");
     using Type_t = ComplexDataType<list<int64_t, 5>>;
     auto publisher = createPublisher<Type_t>();
     this->InterOpWait();
@@ -146,6 +382,7 @@ TEST_F(PublisherSubscriberCommunication_test, SendingComplexDataType_list)
 
 TEST_F(PublisherSubscriberCommunication_test, SendingComplexDataType_optional)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "341ff552-a7a7-4dd9-be83-29d41bf142ec");
     using Type_t = ComplexDataType<list<optional<int32_t>, 5>>;
     auto publisher = createPublisher<Type_t>();
     this->InterOpWait();
@@ -178,6 +415,7 @@ TEST_F(PublisherSubscriberCommunication_test, SendingComplexDataType_optional)
 
 TEST_F(PublisherSubscriberCommunication_test, SendingComplexDataType_stack)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "c378e0db-d863-4cad-9efa-4daec364b266");
     using Type_t = ComplexDataType<stack<int64_t, 10>>;
     auto publisher = createPublisher<Type_t>();
     this->InterOpWait();
@@ -212,6 +450,7 @@ TEST_F(PublisherSubscriberCommunication_test, SendingComplexDataType_stack)
 
 TEST_F(PublisherSubscriberCommunication_test, SendingComplexDataType_string)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "0603b4ca-f41a-4280-9984-cf1465ee05c7");
     using Type_t = ComplexDataType<string<128>>;
     auto publisher = createPublisher<Type_t>();
     this->InterOpWait();
@@ -236,6 +475,7 @@ TEST_F(PublisherSubscriberCommunication_test, SendingComplexDataType_string)
 
 TEST_F(PublisherSubscriberCommunication_test, SendingComplexDataType_vector)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "fdfe4d05-c61a-4a99-b0b7-5e79da2700d5");
     using Type_t = ComplexDataType<vector<string<128>, 20>>;
     auto publisher = createPublisher<Type_t>();
     this->InterOpWait();
@@ -265,6 +505,7 @@ TEST_F(PublisherSubscriberCommunication_test, SendingComplexDataType_vector)
 
 TEST_F(PublisherSubscriberCommunication_test, SendingComplexDataType_variant)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "0b5688ff-2367-4c76-93a2-6e447403c5ed");
     using Type_t = ComplexDataType<vector<variant<string<128>, int>, 20>>;
     auto publisher = createPublisher<Type_t>();
     this->InterOpWait();
@@ -300,10 +541,11 @@ TEST_F(PublisherSubscriberCommunication_test, SendingComplexDataType_variant)
 
 TEST_F(PublisherSubscriberCommunication_test, PublisherBlocksWhenBlockingActivatedOnBothSidesAndSubscriberQueueIsFull)
 {
-    auto publisher = createPublisher<string<128>>(SubscriberTooSlowPolicy::WAIT_FOR_SUBSCRIBER);
+    ::testing::Test::RecordProperty("TEST_ID", "e97f1665-3488-4288-8fde-f485067bfeb4");
+    auto publisher = createPublisher<string<128>>(ConsumerTooSlowPolicy::WAIT_FOR_CONSUMER);
     this->InterOpWait();
 
-    auto subscriber = createSubscriber<string<128>>(QueueFullPolicy::BLOCK_PUBLISHER, 2U);
+    auto subscriber = createSubscriber<string<128>>(QueueFullPolicy::BLOCK_PRODUCER, 2U);
     this->InterOpWait();
 
     EXPECT_FALSE(publisher->publishCopyOf("start your day with a smile").has_error());
@@ -327,10 +569,11 @@ TEST_F(PublisherSubscriberCommunication_test, PublisherBlocksWhenBlockingActivat
     auto sample = subscriber->take();
     ASSERT_FALSE(sample.has_error());
     EXPECT_THAT(**sample, Eq(string<128>("start your day with a smile")));
-    t1.join(); // join needs to be before the load to ensure the wasSampleDelivered store happens before the read
+    t1.join(); // join needs to be before the load to ensure the wasSampleDelivered store happens before the
+               // read
     EXPECT_TRUE(wasSampleDelivered.load());
 
-    EXPECT_FALSE(subscriber->hasMissedData());    
+    EXPECT_FALSE(subscriber->hasMissedData());
     sample = subscriber->take();
     ASSERT_FALSE(sample.has_error());
     EXPECT_THAT(**sample, Eq(string<128>("and hypnotoad will smile back")));
@@ -342,7 +585,8 @@ TEST_F(PublisherSubscriberCommunication_test, PublisherBlocksWhenBlockingActivat
 
 TEST_F(PublisherSubscriberCommunication_test, PublisherDoesNotBlockAndDiscardsSamplesWhenNonBlockingActivated)
 {
-    auto publisher = createPublisher<string<128>>(SubscriberTooSlowPolicy::DISCARD_OLDEST_DATA);
+    ::testing::Test::RecordProperty("TEST_ID", "1d92226d-fb3a-487c-bf52-6eb3c7946dc6");
+    auto publisher = createPublisher<string<128>>(ConsumerTooSlowPolicy::DISCARD_OLDEST_DATA);
     this->InterOpWait();
 
     auto subscriber = createSubscriber<string<128>>(QueueFullPolicy::DISCARD_OLDEST_DATA, 2U);
@@ -364,7 +608,7 @@ TEST_F(PublisherSubscriberCommunication_test, PublisherDoesNotBlockAndDiscardsSa
     t1.join();
     EXPECT_TRUE(wasSampleDelivered.load());
 
-    EXPECT_TRUE(subscriber->hasMissedData());   
+    EXPECT_TRUE(subscriber->hasMissedData());
     auto sample = subscriber->take();
     ASSERT_FALSE(sample.has_error());
     EXPECT_THAT(**sample, Eq(string<128>("second hypnotoad ate it")));
@@ -372,15 +616,15 @@ TEST_F(PublisherSubscriberCommunication_test, PublisherDoesNotBlockAndDiscardsSa
     sample = subscriber->take();
     ASSERT_FALSE(sample.has_error());
     EXPECT_THAT(**sample, Eq(string<128>("third a tiny black hole smells like butter")));
-
 }
 
 TEST_F(PublisherSubscriberCommunication_test, NoSubscriptionWhenSubscriberWantsBlockingAndPublisherDoesNotOfferBlocking)
 {
-    auto publisher = createPublisher<string<128>>(SubscriberTooSlowPolicy::DISCARD_OLDEST_DATA);
+    ::testing::Test::RecordProperty("TEST_ID", "c0144704-6dd7-4354-a41d-d4e512633484");
+    auto publisher = createPublisher<string<128>>(ConsumerTooSlowPolicy::DISCARD_OLDEST_DATA);
     this->InterOpWait();
 
-    auto subscriber = createSubscriber<string<128>>(QueueFullPolicy::BLOCK_PUBLISHER, 2U);
+    auto subscriber = createSubscriber<string<128>>(QueueFullPolicy::BLOCK_PRODUCER, 2U);
     this->InterOpWait();
 
     EXPECT_FALSE(publisher->publishCopyOf("never kiss the hypnotoad").has_error());
@@ -392,7 +636,8 @@ TEST_F(PublisherSubscriberCommunication_test, NoSubscriptionWhenSubscriberWantsB
 
 TEST_F(PublisherSubscriberCommunication_test, SubscriptionWhenSubscriberDoesNotRequireBlockingButPublisherSupportsIt)
 {
-    auto publisher = createPublisher<string<128>>(SubscriberTooSlowPolicy::WAIT_FOR_SUBSCRIBER);
+    ::testing::Test::RecordProperty("TEST_ID", "228ea848-8926-4779-9e38-4d92eeb87feb");
+    auto publisher = createPublisher<string<128>>(ConsumerTooSlowPolicy::WAIT_FOR_CONSUMER);
     this->InterOpWait();
 
     auto subscriber = createSubscriber<string<128>>(QueueFullPolicy::DISCARD_OLDEST_DATA, 2U);
@@ -408,11 +653,12 @@ TEST_F(PublisherSubscriberCommunication_test, SubscriptionWhenSubscriberDoesNotR
 
 TEST_F(PublisherSubscriberCommunication_test, MixedOptionsSetupWorksWithBlocking)
 {
-    auto publisherBlocking = createPublisher<string<128>>(SubscriberTooSlowPolicy::WAIT_FOR_SUBSCRIBER);
-    auto publisherNonBlocking = createPublisher<string<128>>(SubscriberTooSlowPolicy::DISCARD_OLDEST_DATA);
+    ::testing::Test::RecordProperty("TEST_ID", "c60ade45-1765-40ca-bc4b-7452c82ba127");
+    auto publisherBlocking = createPublisher<string<128>>(ConsumerTooSlowPolicy::WAIT_FOR_CONSUMER);
+    auto publisherNonBlocking = createPublisher<string<128>>(ConsumerTooSlowPolicy::DISCARD_OLDEST_DATA);
     this->InterOpWait();
 
-    auto subscriberBlocking = createSubscriber<string<128>>(QueueFullPolicy::BLOCK_PUBLISHER, 2U);
+    auto subscriberBlocking = createSubscriber<string<128>>(QueueFullPolicy::BLOCK_PRODUCER, 2U);
     auto subscriberNonBlocking = createSubscriber<string<128>>(QueueFullPolicy::DISCARD_OLDEST_DATA, 2U);
     this->InterOpWait();
 
@@ -439,10 +685,11 @@ TEST_F(PublisherSubscriberCommunication_test, MixedOptionsSetupWorksWithBlocking
     auto sample = subscriberBlocking->take();
     EXPECT_THAT(sample.has_error(), Eq(false));
     EXPECT_THAT(**sample, Eq(cxx::string<128>("hypnotoads real name is Salsabarh Slimekirkdingle")));
-    t1.join(); // join needs to be before the load to ensure the wasSampleDelivered store happens before the read
+    t1.join(); // join needs to be before the load to ensure the wasSampleDelivered store happens before the
+               // read
     EXPECT_TRUE(wasSampleDelivered.load());
 
-    EXPECT_FALSE(subscriberBlocking->hasMissedData());  // we don't loose samples here
+    EXPECT_FALSE(subscriberBlocking->hasMissedData()); // we don't loose samples here
     sample = subscriberBlocking->take();
     EXPECT_THAT(sample.has_error(), Eq(false));
     EXPECT_THAT(**sample, Eq(cxx::string<128>("hypnotoad wants a cookie")));
@@ -462,5 +709,6 @@ TEST_F(PublisherSubscriberCommunication_test, MixedOptionsSetupWorksWithBlocking
     EXPECT_THAT(sample.has_error(), Eq(false));
     EXPECT_THAT(**sample, Eq(cxx::string<128>("chucky is the only one who can ride the hypnotoad")));
     EXPECT_THAT(subscriberNonBlocking->take().has_error(), Eq(true));
-
 }
+
+} // namespace

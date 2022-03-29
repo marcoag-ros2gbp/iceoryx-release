@@ -1,5 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
 #ifndef IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_RECEIVER_HPP
 #define IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_RECEIVER_HPP
 
+#include "iceoryx_hoofs/cxx/expected.hpp"
+#include "iceoryx_hoofs/cxx/helplets.hpp"
+#include "iceoryx_hoofs/cxx/optional.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_queue_popper.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_receiver_data.hpp"
 #include "iceoryx_posh/mepoo/chunk_header.hpp"
-#include "iceoryx_utils/cxx/expected.hpp"
-#include "iceoryx_utils/cxx/helplets.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
 
 namespace iox
 {
@@ -30,10 +30,26 @@ namespace popo
 {
 enum class ChunkReceiveResult
 {
-    INVALID_STATE,
     TOO_MANY_CHUNKS_HELD_IN_PARALLEL,
     NO_CHUNK_AVAILABLE
 };
+
+/// @brief Converts the ChunkReceiveResult to a string literal
+/// @param[in] value to convert to a string literal
+/// @return pointer to a string literal
+inline constexpr const char* asStringLiteral(const ChunkReceiveResult value) noexcept;
+
+/// @brief Convenience stream operator to easily use the `asStringLiteral` function with std::ostream
+/// @param[in] stream sink to write the message to
+/// @param[in] value to convert to a string literal
+/// @return the reference to `stream` which was provided as input parameter
+inline std::ostream& operator<<(std::ostream& stream, ChunkReceiveResult value) noexcept;
+
+/// @brief Convenience stream operator to easily use the `asStringLiteral` function with iox::log::LogStream
+/// @param[in] stream sink to write the message to
+/// @param[in] value to convert to a string literal
+/// @return the reference to `stream` which was provided as input parameter
+inline log::LogStream& operator<<(log::LogStream& stream, ChunkReceiveResult value) noexcept;
 
 /// @brief The ChunkReceiver is a building block of the shared memory communication infrastructure. It extends
 /// the functionality of a ChunkQueuePopper with the abililty to pass chunks to the user side (user process).
@@ -52,9 +68,9 @@ class ChunkReceiver : public ChunkQueuePopper<typename ChunkReceiverDataType::Ch
 
     ChunkReceiver(const ChunkReceiver& other) = delete;
     ChunkReceiver& operator=(const ChunkReceiver&) = delete;
-    ChunkReceiver(ChunkReceiver&& rhs) = default;
-    ChunkReceiver& operator=(ChunkReceiver&& rhs) = default;
-    ~ChunkReceiver() = default;
+    ChunkReceiver(ChunkReceiver&& rhs) noexcept = default;
+    ChunkReceiver& operator=(ChunkReceiver&& rhs) noexcept = default;
+    ~ChunkReceiver() noexcept = default;
 
     /// @brief Tries to get the next received chunk. If there is a new one the ChunkHeader of this new chunk is received
     /// The ownerhip of the SharedChunk remains in the ChunkReceiver for being able to cleanup if the user process

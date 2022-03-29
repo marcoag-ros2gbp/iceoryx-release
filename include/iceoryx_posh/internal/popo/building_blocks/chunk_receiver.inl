@@ -1,5 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,38 @@
 #ifndef IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_RECEIVER_INL
 #define IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_RECEIVER_INL
 
+#include "iceoryx_hoofs/error_handling/error_handling.hpp"
 #include "iceoryx_posh/internal/log/posh_logging.hpp"
-#include "iceoryx_utils/error_handling/error_handling.hpp"
 
 namespace iox
 {
 namespace popo
 {
+inline constexpr const char* asStringLiteral(const ChunkReceiveResult value) noexcept
+{
+    switch (value)
+    {
+    case ChunkReceiveResult::TOO_MANY_CHUNKS_HELD_IN_PARALLEL:
+        return "ChunkReceiveResult::TOO_MANY_CHUNKS_HELD_IN_PARALLEL";
+    case ChunkReceiveResult::NO_CHUNK_AVAILABLE:
+        return "ChunkReceiveResult::NO_CHUNK_AVAILABLE";
+    }
+
+    return "[Undefined ChunkReceiveResult]";
+}
+
+inline std::ostream& operator<<(std::ostream& stream, ChunkReceiveResult value) noexcept
+{
+    stream << asStringLiteral(value);
+    return stream;
+}
+
+inline log::LogStream& operator<<(log::LogStream& stream, ChunkReceiveResult value) noexcept
+{
+    stream << asStringLiteral(value);
+    return stream;
+}
+
 template <typename ChunkReceiverDataType>
 inline ChunkReceiver<ChunkReceiverDataType>::ChunkReceiver(
     cxx::not_null<MemberType_t* const> chunkReceiverDataPtr) noexcept

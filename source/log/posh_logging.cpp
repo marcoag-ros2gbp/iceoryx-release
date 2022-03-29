@@ -1,4 +1,3 @@
-
 // Copyright (c) 2019 by Robert Bosch GmbH. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,7 +18,7 @@
 
 namespace iox
 {
-constexpr char LoggingComponent::Ctx[];
-constexpr char LoggingComponent::Description[];
+constexpr char LoggingComponentPosh::Ctx[];
+constexpr char LoggingComponentPosh::Description[];
 
 } // namespace iox

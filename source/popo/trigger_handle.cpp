@@ -21,6 +21,11 @@ namespace iox
 {
 namespace popo
 {
+/// explicitly implemented for MSVC and QNX
+TriggerHandle::TriggerHandle() noexcept
+{
+}
+
 TriggerHandle::TriggerHandle(ConditionVariableData& conditionVariableData,
                              const cxx::MethodCallback<void, uint64_t> resetCallback,
                              const uint64_t uniqueTriggerId) noexcept
@@ -59,7 +64,7 @@ TriggerHandle& TriggerHandle::operator=(TriggerHandle&& rhs) noexcept
     return *this;
 }
 
-TriggerHandle::~TriggerHandle()
+TriggerHandle::~TriggerHandle() noexcept
 {
     reset();
 }

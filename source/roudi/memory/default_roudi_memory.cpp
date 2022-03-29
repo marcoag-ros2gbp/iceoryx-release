@@ -16,9 +16,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "iceoryx_posh/roudi/memory/default_roudi_memory.hpp"
+#include "iceoryx_hoofs/cxx/helplets.hpp"
 #include "iceoryx_posh/internal/mepoo/mem_pool.hpp"
 #include "iceoryx_posh/roudi/introspection_types.hpp"
-#include "iceoryx_utils/cxx/helplets.hpp"
 
 namespace iox
 {
@@ -27,8 +27,7 @@ namespace roudi
 DefaultRouDiMemory::DefaultRouDiMemory(const RouDiConfig_t& roudiConfig) noexcept
     : m_introspectionMemPoolBlock(introspectionMemPoolConfig())
     , m_segmentManagerBlock(roudiConfig)
-    , m_managementShm(SHM_NAME, posix::AccessMode::READ_WRITE, posix::OwnerShip::MINE)
-
+    , m_managementShm(SHM_NAME, posix::AccessMode::READ_WRITE, posix::OpenMode::PURGE_AND_CREATE)
 {
     m_managementShm.addMemoryBlock(&m_introspectionMemPoolBlock).or_else([](auto) {
         errorHandler(
@@ -39,7 +38,7 @@ DefaultRouDiMemory::DefaultRouDiMemory(const RouDiConfig_t& roudiConfig) noexcep
             Error::kROUDI__DEFAULT_ROUDI_MEMORY_FAILED_TO_ADD_SEGMENT_MANAGER_MEMORY_BLOCK, nullptr, ErrorLevel::FATAL);
     });
 }
-mepoo::MePooConfig DefaultRouDiMemory::introspectionMemPoolConfig() const
+mepoo::MePooConfig DefaultRouDiMemory::introspectionMemPoolConfig() const noexcept
 {
     constexpr uint32_t ALIGNMENT{mepoo::MemPool::CHUNK_MEMORY_ALIGNMENT};
     // have some spare chunks to still deliver introspection data in case there are multiple subscriber to the data

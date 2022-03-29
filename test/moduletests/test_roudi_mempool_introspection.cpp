@@ -15,20 +15,20 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "iceoryx_hoofs/cxx/vector.hpp"
+#include "iceoryx_hoofs/testing/timing_test.hpp"
+#include "iceoryx_posh/internal/mepoo/segment_manager.hpp"
+#include "iceoryx_posh/internal/roudi/introspection/mempool_introspection.hpp"
+#include "iceoryx_posh/roudi/introspection_types.hpp"
 #include "iceoryx_posh/testing/mocks/chunk_mock.hpp"
 #include "mocks/mepoo_memory_manager_mock.hpp"
 #include "mocks/publisher_mock.hpp"
-#include "iceoryx_utils/testing/timing_test.hpp"
+
 #include "test.hpp"
 
+namespace
+{
 using namespace ::testing;
-using ::testing::Return;
-
-#include "iceoryx_posh/internal/roudi/introspection/mempool_introspection.hpp"
-
-#include "iceoryx_posh/internal/mepoo/segment_manager.hpp"
-#include "iceoryx_posh/roudi/introspection_types.hpp"
-#include "iceoryx_utils/cxx/vector.hpp"
 
 class CallChecker
 {
@@ -190,6 +190,7 @@ class MemPoolIntrospection_test : public Test
 
 TEST_F(MemPoolIntrospection_test, CTOR)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "9da5951c-cbff-41b5-95e3-ae6921ce9331");
     {
         EXPECT_CALL(callChecker(), offer()).Times(1);
 
@@ -202,6 +203,7 @@ TEST_F(MemPoolIntrospection_test, CTOR)
 
 TEST_F(MemPoolIntrospection_test, send_noSubscribers)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "28af0288-b57e-4c49-b0a9-33809bf69c96");
     EXPECT_CALL(callChecker(), offer()).Times(1);
 
     MemPoolIntrospectionAccess introspectionAccess(
@@ -220,6 +222,7 @@ TEST_F(MemPoolIntrospection_test, send_noSubscribers)
 /// Should be realized as an integration test with a roudi environment and less mocking classes instead.
 TEST_F(MemPoolIntrospection_test, DISABLED_send_withSubscribers)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "52c48ddb-e7b6-450d-b262-1e24401ac878");
     EXPECT_CALL(callChecker(), offer()).Times(1);
 
     MemPoolIntrospectionAccess introspectionAccess(
@@ -274,3 +277,5 @@ TIMING_TEST_F(MemPoolIntrospection_test, thread, Repeat(5), [&] {
         6 * snapshotInterval.toMilliseconds())); // the thread should sleep, if not, we have 12 runs
     introspectionAccess.stop();
 });
+
+} // namespace

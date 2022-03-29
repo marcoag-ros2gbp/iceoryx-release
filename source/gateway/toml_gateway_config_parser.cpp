@@ -1,4 +1,4 @@
-// Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2020 - 2021 by Robert Bosch GmbH. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,19 +15,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "iceoryx_posh/gateway/toml_gateway_config_parser.hpp"
+#include "iceoryx_hoofs/internal/file_reader/file_reader.hpp"
 #include "iceoryx_posh/internal/log/posh_config_logging.hpp"
-#include "iceoryx_utils/internal/file_reader/file_reader.hpp"
 
 #include <regex>
 
 iox::cxx::expected<iox::config::GatewayConfig, iox::config::TomlGatewayConfigParseError>
-iox::config::TomlGatewayConfigParser::parse()
-{
-    return iox::config::TomlGatewayConfigParser::parse(DEFAULT_CONFIG_FILE_PATH);
-}
-
-iox::cxx::expected<iox::config::GatewayConfig, iox::config::TomlGatewayConfigParseError>
-iox::config::TomlGatewayConfigParser::parse(const roudi::ConfigFilePathString_t& path)
+iox::config::TomlGatewayConfigParser::parse(const roudi::ConfigFilePathString_t& path) noexcept
 {
     iox::config::GatewayConfig config;
 
@@ -41,7 +35,7 @@ iox::config::TomlGatewayConfigParser::parse(const roudi::ConfigFilePathString_t&
 
     /// @todo Replace with C++17 std::filesystem::exists()
     iox::cxx::FileReader configFile(path, "", cxx::FileReader::ErrorMode::Ignore);
-    if (!configFile.IsOpen())
+    if (!configFile.isOpen())
     {
         LogWarn() << "Gateway config file not found at: '" << path << "'. Falling back to built-in config.";
         return iox::cxx::success<GatewayConfig>(config);
@@ -59,7 +53,8 @@ iox::config::TomlGatewayConfigParser::parse(const roudi::ConfigFilePathString_t&
     {
         auto parserError = iox::config::TomlGatewayConfigParseError::EXCEPTION_IN_PARSER;
 
-        LogWarn() << iox::cxx::convertEnumToString(iox::config::TOML_GATEWAY_CONFIG_FILE_PARSE_ERROR_STRINGS, parserError)
+        LogWarn() << iox::cxx::convertEnumToString(iox::config::TOML_GATEWAY_CONFIG_FILE_PARSE_ERROR_STRINGS,
+                                                   parserError)
                   << ": " << parserException.what();
 
         return iox::cxx::error<iox::config::TomlGatewayConfigParseError>(parserError);
@@ -97,6 +92,12 @@ iox::config::TomlGatewayConfigParser::validate(const cpptoml::table& parsedToml)
     if (!serviceArray)
     {
         return iox::cxx::error<TomlGatewayConfigParseError>(TomlGatewayConfigParseError::INCOMPLETE_CONFIGURATION);
+    }
+
+    if (serviceArray->get().size() > iox::MAX_GATEWAY_SERVICES)
+    {
+        return iox::cxx::error<TomlGatewayConfigParseError>(
+            TomlGatewayConfigParseError::MAXIMUM_NUMBER_OF_ENTRIES_EXCEEDED);
     }
 
     uint8_t count = 0;

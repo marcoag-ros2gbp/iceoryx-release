@@ -21,15 +21,27 @@ namespace iox
 {
 namespace popo
 {
+cxx::VariantQueueTypes getResponseQueueType(const QueueFullPolicy policy) noexcept
+{
+    return policy == QueueFullPolicy::DISCARD_OLDEST_DATA ? cxx::VariantQueueTypes::SoFi_MultiProducerSingleConsumer
+                                                          : cxx::VariantQueueTypes::FiFo_MultiProducerSingleConsumer;
+}
+
+constexpr uint64_t ClientPortData::HISTORY_CAPACITY_ZERO;
+
 ClientPortData::ClientPortData(const capro::ServiceDescription& serviceDescription,
                                const RuntimeName_t& runtimeName,
-                               const NodeName_t& nodeName,
+                               const ClientOptions& clientOptions,
                                mepoo::MemoryManager* const memoryManager,
                                const mepoo::MemoryInfo& memoryInfo) noexcept
-    : BasePortData(serviceDescription, runtimeName, nodeName)
-    , m_chunkSenderData(memoryManager, CLIENT_SUBSCRIBER_POLICY, 0, memoryInfo)
-    , m_chunkReceiverData(cxx::VariantQueueTypes::FiFo_SingleProducerSingleConsumer, CLIENT_PUBLISHER_POLICY)
+    : BasePortData(serviceDescription, runtimeName, clientOptions.nodeName)
+    , m_chunkSenderData(memoryManager, clientOptions.serverTooSlowPolicy, HISTORY_CAPACITY_ZERO, memoryInfo)
+    , m_chunkReceiverData(getResponseQueueType(clientOptions.responseQueueFullPolicy),
+                          clientOptions.responseQueueFullPolicy,
+                          memoryInfo)
+    , m_connectRequested(clientOptions.connectOnCreate)
 {
+    m_chunkReceiverData.m_queue.setCapacity(clientOptions.responseQueueCapacity);
 }
 
 } // namespace popo

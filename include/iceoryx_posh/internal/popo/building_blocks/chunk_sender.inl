@@ -1,5 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,10 +17,64 @@
 #ifndef IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_SENDER_INL
 #define IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_SENDER_INL
 
+#include "iceoryx_posh/internal/popo/building_blocks/chunk_sender.hpp"
+
 namespace iox
 {
+namespace cxx
+{
+template <>
+constexpr popo::AllocationError
+from<mepoo::MemoryManager::Error, popo::AllocationError>(const mepoo::MemoryManager::Error error) noexcept
+{
+    switch (error)
+    {
+    case mepoo::MemoryManager::Error::NO_MEMPOOLS_AVAILABLE:
+        return popo::AllocationError::NO_MEMPOOLS_AVAILABLE;
+    case mepoo::MemoryManager::Error::NO_MEMPOOL_FOR_REQUESTED_CHUNK_SIZE:
+        return popo::AllocationError::NO_MEMPOOLS_AVAILABLE;
+    case mepoo::MemoryManager::Error::MEMPOOL_OUT_OF_CHUNKS:
+        return popo::AllocationError::RUNNING_OUT_OF_CHUNKS;
+    }
+    return popo::AllocationError::UNDEFINED_ERROR;
+}
+} // namespace cxx
+
 namespace popo
 {
+inline constexpr const char* asStringLiteral(const AllocationError value) noexcept
+{
+    switch (value)
+    {
+    case AllocationError::UNDEFINED_ERROR:
+        return "AllocationError::UNDEFINED_ERROR";
+    case AllocationError::NO_MEMPOOLS_AVAILABLE:
+        return "AllocationError::NO_MEMPOOLS_AVAILABLE";
+    case AllocationError::RUNNING_OUT_OF_CHUNKS:
+        return "AllocationError::RUNNING_OUT_OF_CHUNKS";
+    case AllocationError::TOO_MANY_CHUNKS_ALLOCATED_IN_PARALLEL:
+        return "AllocationError::TOO_MANY_CHUNKS_ALLOCATED_IN_PARALLEL";
+    case AllocationError::INVALID_PARAMETER_FOR_USER_PAYLOAD_OR_USER_HEADER:
+        return "AllocationError::INVALID_PARAMETER_FOR_USER_PAYLOAD_OR_USER_HEADER";
+    case AllocationError::INVALID_PARAMETER_FOR_REQUEST_HEADER:
+        return "AllocationError::INVALID_PARAMETER_FOR_REQUEST_HEADER";
+    }
+
+    return "[Undefined AllocationError]";
+}
+
+inline std::ostream& operator<<(std::ostream& stream, AllocationError value) noexcept
+{
+    stream << asStringLiteral(value);
+    return stream;
+}
+
+inline log::LogStream& operator<<(log::LogStream& stream, AllocationError value) noexcept
+{
+    stream << asStringLiteral(value);
+    return stream;
+}
+
 template <typename ChunkSenderDataType>
 inline ChunkSender<ChunkSenderDataType>::ChunkSender(cxx::not_null<MemberType_t* const> chunkSenderDataPtr) noexcept
     : Base_t(static_cast<typename ChunkSenderDataType::ChunkDistributorData_t* const>(chunkSenderDataPtr))
@@ -83,16 +137,18 @@ ChunkSender<ChunkSenderDataType>::tryAllocate(const UniquePortId originId,
     }
     else
     {
-        // BEGIN of critical section, chunk will be lost if process gets hard terminated in between
+        // BEGIN of critical section, chunk will be lost if the process terminates in this section
         // get a new chunk
-        mepoo::SharedChunk chunk = getMembers()->m_memoryMgr->getChunk(chunkSettings);
+        auto getChunkResult = getMembers()->m_memoryMgr->getChunk(chunkSettings);
 
-        if (chunk)
+        if (!getChunkResult.has_error())
         {
+            auto& chunk = getChunkResult.value();
+
             // if the application allocated too much chunks, return no more chunks
             if (getMembers()->m_chunksInUse.insert(chunk))
             {
-                // END of critical section, chunk will be lost if process gets hard terminated in between
+                // END of critical section
                 chunk.getChunkHeader()->setOriginId(originId);
                 return cxx::success<mepoo::ChunkHeader*>(chunk.getChunkHeader());
             }
@@ -105,7 +161,8 @@ ChunkSender<ChunkSenderDataType>::tryAllocate(const UniquePortId originId,
         }
         else
         {
-            return cxx::error<AllocationError>(AllocationError::RUNNING_OUT_OF_CHUNKS);
+            /// @todo iox-#1012 use cxx::error<E2>::from(E1); once available
+            return cxx::error<AllocationError>(cxx::into<AllocationError>(getChunkResult.get_error()));
         }
     }
 }
@@ -122,25 +179,49 @@ inline void ChunkSender<ChunkSenderDataType>::release(const mepoo::ChunkHeader* 
 }
 
 template <typename ChunkSenderDataType>
-inline void ChunkSender<ChunkSenderDataType>::send(mepoo::ChunkHeader* const chunkHeader) noexcept
+inline uint64_t ChunkSender<ChunkSenderDataType>::send(mepoo::ChunkHeader* const chunkHeader) noexcept
 {
+    uint64_t numberOfReceiverTheChunkWasDelivered{0};
     mepoo::SharedChunk chunk(nullptr);
-    // BEGIN of critical section, chunk will be lost if process gets hard terminated in between
+    // BEGIN of critical section, chunk will be lost if the process terminates in this section
     if (getChunkReadyForSend(chunkHeader, chunk))
     {
-        this->deliverToAllStoredQueues(chunk);
+        numberOfReceiverTheChunkWasDelivered = this->deliverToAllStoredQueues(chunk);
 
         getMembers()->m_lastChunkUnmanaged.releaseToSharedChunk();
         getMembers()->m_lastChunkUnmanaged = chunk;
     }
-    // END of critical section, chunk will be lost if process gets hard terminated in between
+    // END of critical section
+
+    return numberOfReceiverTheChunkWasDelivered;
+}
+
+template <typename ChunkSenderDataType>
+inline bool ChunkSender<ChunkSenderDataType>::sendToQueue(mepoo::ChunkHeader* const chunkHeader,
+                                                          const cxx::UniqueId uniqueQueueId,
+                                                          const uint32_t lastKnownQueueIndex) noexcept
+{
+    mepoo::SharedChunk chunk(nullptr);
+    // BEGIN of critical section, chunk will be lost if the process terminates in this section
+    if (getChunkReadyForSend(chunkHeader, chunk))
+    {
+        auto deliveryResult = this->deliverToQueue(uniqueQueueId, lastKnownQueueIndex, chunk);
+
+        getMembers()->m_lastChunkUnmanaged.releaseToSharedChunk();
+        getMembers()->m_lastChunkUnmanaged = chunk;
+
+        return !deliveryResult.has_error();
+    }
+    // END of critical section
+
+    return false;
 }
 
 template <typename ChunkSenderDataType>
 inline void ChunkSender<ChunkSenderDataType>::pushToHistory(mepoo::ChunkHeader* const chunkHeader) noexcept
 {
     mepoo::SharedChunk chunk(nullptr);
-    // BEGIN of critical section, chunk will be lost if process gets hard terminated in between
+    // BEGIN of critical section, chunk will be lost if the process terminates in this section
     if (getChunkReadyForSend(chunkHeader, chunk))
     {
         this->addToHistoryWithoutDelivery(chunk);
@@ -148,7 +229,7 @@ inline void ChunkSender<ChunkSenderDataType>::pushToHistory(mepoo::ChunkHeader* 
         getMembers()->m_lastChunkUnmanaged.releaseToSharedChunk();
         getMembers()->m_lastChunkUnmanaged = chunk;
     }
-    // END of critical section, chunk will be lost if process gets hard terminated in between
+    // END of critical section
 }
 
 template <typename ChunkSenderDataType>

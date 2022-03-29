@@ -17,7 +17,7 @@
 #ifndef IOX_POSH_ROUDI_INTROSPECTION_PORT_INTROSPECTION_INL
 #define IOX_POSH_ROUDI_INTROSPECTION_PORT_INTROSPECTION_INL
 
-#include "iceoryx_utils/posix_wrapper/thread.hpp"
+#include "iceoryx_hoofs/posix_wrapper/thread.hpp"
 
 namespace iox
 {
@@ -48,7 +48,7 @@ inline void PortIntrospection<PublisherPort, SubscriberPort>::reportMessage(cons
 
 template <typename PublisherPort, typename SubscriberPort>
 inline void PortIntrospection<PublisherPort, SubscriberPort>::reportMessage(const capro::CaproMessage& message,
-                                                                            const UniquePortId& id)
+                                                                            const popo::UniquePortId& id) noexcept
 {
     m_portData.updateSubscriberConnectionState(message, id);
 }
@@ -203,7 +203,7 @@ inline bool PortIntrospection<PublisherPort, SubscriberPort>::PortData::updateCo
 
 template <typename PublisherPort, typename SubscriberPort>
 inline bool PortIntrospection<PublisherPort, SubscriberPort>::PortData::updateSubscriberConnectionState(
-    const capro::CaproMessage& message, const UniquePortId& id)
+    const capro::CaproMessage& message, const popo::UniquePortId& id) noexcept
 {
     const capro::ServiceDescription& service = message.m_serviceDescription;
     capro::CaproMessageType messageType = message.m_type;
@@ -232,8 +232,8 @@ inline bool PortIntrospection<PublisherPort, SubscriberPort>::PortData::updateSu
 }
 
 template <typename PublisherPort, typename SubscriberPort>
-inline bool
-PortIntrospection<PublisherPort, SubscriberPort>::PortData::addPublisher(typename PublisherPort::MemberType_t& port)
+inline bool PortIntrospection<PublisherPort, SubscriberPort>::PortData::addPublisher(
+    typename PublisherPort::MemberType_t& port) noexcept
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -250,7 +250,7 @@ PortIntrospection<PublisherPort, SubscriberPort>::PortData::addPublisher(typenam
     if (iter == m_publisherMap.end())
     {
         // service is new, create new map
-        std::map<UniquePortId, typename PublisherContainer::Index_t> innerPublisherMap;
+        std::map<popo::UniquePortId, typename PublisherContainer::Index_t> innerPublisherMap;
         innerPublisherMap.insert(std::make_pair(uniqueId, index));
         m_publisherMap.insert(std::make_pair(service, innerPublisherMap));
     }
@@ -293,7 +293,7 @@ PortIntrospection<PublisherPort, SubscriberPort>::PortData::addPublisher(typenam
 
 template <typename PublisherPort, typename SubscriberPort>
 inline bool PortIntrospection<PublisherPort, SubscriberPort>::PortData::addSubscriber(
-    typename SubscriberPort::MemberType_t& portData)
+    typename SubscriberPort::MemberType_t& portData) noexcept
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -311,7 +311,7 @@ inline bool PortIntrospection<PublisherPort, SubscriberPort>::PortData::addSubsc
     if (iter == m_connectionMap.end())
     {
         // service is new, create new map
-        std::map<UniquePortId, typename ConnectionContainer::Index_t> innerConnectionMap;
+        std::map<popo::UniquePortId, typename ConnectionContainer::Index_t> innerConnectionMap;
         innerConnectionMap.insert(std::make_pair(uniqueId, index));
         m_connectionMap.insert(std::make_pair(service, innerConnectionMap));
     }
@@ -347,7 +347,8 @@ inline bool PortIntrospection<PublisherPort, SubscriberPort>::PortData::addSubsc
 }
 
 template <typename PublisherPort, typename SubscriberPort>
-inline bool PortIntrospection<PublisherPort, SubscriberPort>::PortData::removePublisher(const PublisherPort& port)
+inline bool
+PortIntrospection<PublisherPort, SubscriberPort>::PortData::removePublisher(const PublisherPort& port) noexcept
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -382,7 +383,8 @@ inline bool PortIntrospection<PublisherPort, SubscriberPort>::PortData::removePu
 }
 
 template <typename PublisherPort, typename SubscriberPort>
-inline bool PortIntrospection<PublisherPort, SubscriberPort>::PortData::removeSubscriber(const SubscriberPort& port)
+inline bool
+PortIntrospection<PublisherPort, SubscriberPort>::PortData::removeSubscriber(const SubscriberPort& port) noexcept
 {
     std::lock_guard<std::mutex> lock(m_mutex);
 
@@ -633,25 +635,27 @@ inline void PortIntrospection<PublisherPort, SubscriberPort>::PortData::setNew(b
 }
 
 template <typename PublisherPort, typename SubscriberPort>
-inline bool PortIntrospection<PublisherPort, SubscriberPort>::addPublisher(typename PublisherPort::MemberType_t& port)
+inline bool
+PortIntrospection<PublisherPort, SubscriberPort>::addPublisher(typename PublisherPort::MemberType_t& port) noexcept
 {
     return m_portData.addPublisher(port);
 }
 
 template <typename PublisherPort, typename SubscriberPort>
-inline bool PortIntrospection<PublisherPort, SubscriberPort>::addSubscriber(typename SubscriberPort::MemberType_t& port)
+inline bool
+PortIntrospection<PublisherPort, SubscriberPort>::addSubscriber(typename SubscriberPort::MemberType_t& port) noexcept
 {
     return m_portData.addSubscriber(port);
 }
 
 template <typename PublisherPort, typename SubscriberPort>
-inline bool PortIntrospection<PublisherPort, SubscriberPort>::removePublisher(const PublisherPort& port)
+inline bool PortIntrospection<PublisherPort, SubscriberPort>::removePublisher(const PublisherPort& port) noexcept
 {
     return m_portData.removePublisher(port);
 }
 
 template <typename PublisherPort, typename SubscriberPort>
-inline bool PortIntrospection<PublisherPort, SubscriberPort>::removeSubscriber(const SubscriberPort& port)
+inline bool PortIntrospection<PublisherPort, SubscriberPort>::removeSubscriber(const SubscriberPort& port) noexcept
 {
     return m_portData.removeSubscriber(port);
 }
