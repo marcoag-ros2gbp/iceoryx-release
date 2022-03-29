@@ -20,16 +20,16 @@
 
 #include "iceoryx_binding_c/enums.h"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
+#include "iceoryx_posh/internal/popo/base_subscriber.hpp"
 #include "iceoryx_posh/internal/popo/ports/subscriber_port_user.hpp"
-#include "iceoryx_posh/popo/base_subscriber.hpp"
 #include "iceoryx_posh/popo/wait_set.hpp"
 
 struct cpp2c_Subscriber
 {
-    cpp2c_Subscriber() = default;
+    cpp2c_Subscriber() noexcept = default;
     cpp2c_Subscriber(const cpp2c_Subscriber&) = delete;
     cpp2c_Subscriber(cpp2c_Subscriber&& rhs) = delete;
-    ~cpp2c_Subscriber();
+    ~cpp2c_Subscriber() noexcept;
 
     cpp2c_Subscriber& operator=(const cpp2c_Subscriber&) = delete;
     cpp2c_Subscriber& operator=(cpp2c_Subscriber&& rhs) = delete;
