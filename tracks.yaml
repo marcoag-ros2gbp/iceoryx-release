@@ -41,15 +41,15 @@ tracks:
       :{release_inc} --os-name fedora
     - git-bloom-generate -y rosrpm --prefix release/:{ros_distro} :{ros_distro} -i
       :{release_inc} --os-name rhel
-    devel_branch: release_1.0
+    devel_branch: release_2.0
     last_release: v1.0.2
     last_version: 1.0.2
     name: iceoryx
     patches: null
     release_inc: '2'
     release_repo_url: null
-    release_tag: v1.0.2
+    release_tag: v:{version}
     ros_distro: rolling
     vcs_type: git
     vcs_uri: https://github.com/eclipse-iceoryx/iceoryx.git
-    version: 1.0.2
+    version: 2.0.0
