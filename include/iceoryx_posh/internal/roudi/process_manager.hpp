@@ -1,5 +1,5 @@
 // Copyright (c) 2019, 2021 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,6 +17,9 @@
 #ifndef IOX_POSH_ROUDI_PROCESS_MANAGER_HPP
 #define IOX_POSH_ROUDI_PROCESS_MANAGER_HPP
 
+#include "iceoryx_hoofs/cxx/list.hpp"
+#include "iceoryx_hoofs/error_handling/error_handling.hpp"
+#include "iceoryx_hoofs/posix_wrapper/posix_access_rights.hpp"
 #include "iceoryx_posh/internal/mepoo/segment_manager.hpp"
 #include "iceoryx_posh/internal/roudi/introspection/process_introspection.hpp"
 #include "iceoryx_posh/internal/roudi/port_manager.hpp"
@@ -25,9 +28,6 @@
 #include "iceoryx_posh/mepoo/chunk_header.hpp"
 #include "iceoryx_posh/version/compatibility_check_level.hpp"
 #include "iceoryx_posh/version/version_info.hpp"
-#include "iceoryx_utils/cxx/list.hpp"
-#include "iceoryx_utils/error_handling/error_handling.hpp"
-#include "iceoryx_utils/posix_wrapper/posix_access_rights.hpp"
 
 #include <cstdint>
 #include <ctime>
@@ -39,7 +39,6 @@ namespace roudi
 class ProcessManagerInterface
 {
   public:
-    virtual void sendServiceRegistryChangeCounterToProcess(const RuntimeName_t& process_name) noexcept = 0;
     virtual void discoveryUpdate() noexcept = 0;
 
     virtual ~ProcessManagerInterface() noexcept = default;
@@ -107,12 +106,8 @@ class ProcessManager : public ProcessManagerInterface
 
     void updateLivelinessOfProcess(const RuntimeName_t& name) noexcept;
 
-    void findServiceForProcess(const RuntimeName_t& name, const capro::ServiceDescription& service) noexcept;
-
     void
     addInterfaceForProcess(const RuntimeName_t& name, capro::Interfaces interface, const NodeName_t& node) noexcept;
-
-    void addApplicationForProcess(const RuntimeName_t& name) noexcept;
 
     void addNodeForProcess(const RuntimeName_t& process, const NodeName_t& node) noexcept;
 
@@ -126,24 +121,44 @@ class ProcessManager : public ProcessManagerInterface
                                 const popo::PublisherOptions& publisherOptions,
                                 const PortConfigInfo& portConfigInfo = PortConfigInfo()) noexcept;
 
+    /// @brief Adds a client port to the internal process object and sends it to the OS process
+    /// @param[in] name is the name of the runtime requesting the port
+    /// @param[in] service is the service description for the new client port
+    /// @param[in] clientOptions like the queue capacity and queue full policy by a client
+    /// @param[in] portConfigInfo configuration information for the port
+    /// (what type of port is requested, device where its payload memory is located on etc.)
+    /// @return pointer to a created client port data
+    void addClientForProcess(const RuntimeName_t& name,
+                             const capro::ServiceDescription& service,
+                             const popo::ClientOptions& clientOptions,
+                             const PortConfigInfo& portConfigInfo) noexcept;
+
+    /// @brief Adds a server port to the internal process object and sends it to the OS process
+    /// @param[in] name is the name of the runtime requesting the port
+    /// @param[in] service is the service description for the new server port
+    /// @param[in] serverOptions like the queue capacity and queue full policy by a server
+    /// @param[in] portConfigInfo configuration information for the port
+    /// (what type of port is requested, device where its payload memory is located on etc.)
+    /// @return pointer to a created server port data
+    void addServerForProcess(const RuntimeName_t& name,
+                             const capro::ServiceDescription& service,
+                             const popo::ServerOptions& serverOptions,
+                             const PortConfigInfo& portConfigInfo) noexcept;
+
     void addConditionVariableForProcess(const RuntimeName_t& runtimeName) noexcept;
 
     void initIntrospection(ProcessIntrospectionType* processIntrospection) noexcept;
 
     void run() noexcept;
 
-    popo::PublisherPortData* addIntrospectionPublisherPort(const capro::ServiceDescription& service,
-                                                           const RuntimeName_t& process_name) noexcept;
+    popo::PublisherPortData* addIntrospectionPublisherPort(const capro::ServiceDescription& service) noexcept;
 
     /// @brief Notify the application that it sent an unsupported message
     void sendMessageNotSupportedToRuntime(const RuntimeName_t& name) noexcept;
 
-    void sendServiceRegistryChangeCounterToProcess(const RuntimeName_t& process_name) noexcept override;
 
   private:
-    bool searchForProcessAndThen(const RuntimeName_t& name,
-                                 cxx::function_ref<void(Process&)> AndThenCallable,
-                                 cxx::function_ref<void()> OrElseCallable) noexcept;
+    cxx::optional<Process*> findProcess(const RuntimeName_t& name) noexcept;
 
     void monitorProcesses() noexcept;
     void discoveryUpdate() noexcept override;

@@ -1,5 +1,4 @@
-// Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,145 +14,80 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#include "iceoryx_posh/popo/publisher.hpp"
-#include "iceoryx_posh/popo/sample.hpp"
-#include "iceoryx_utils/cxx/unique_ptr.hpp"
-
+#include "iceoryx_hoofs/cxx/unique_ptr.hpp"
 #include "iceoryx_posh/testing/mocks/chunk_mock.hpp"
 
 #include "test.hpp"
+#include "test_popo_smart_chunk_common.hpp"
 
-using namespace ::testing;
-using ::testing::_;
-
-// anonymous namespace to prevent linker issues or sanitizer false positives
-// if a struct with the same name is used in other tests
 namespace
 {
-struct DummyData
-{
-    DummyData() = default;
-    uint32_t val = 42;
-};
-struct DummyHeader
-{
-    DummyHeader() = default;
-    uint64_t counter = 0;
-};
-} // namespace
+using namespace ::testing;
+using namespace iox::popo;
+using namespace test_smart_chunk_common;
+using ::testing::_;
 
-template <typename T, typename H = iox::mepoo::NoUserHeader>
-class MockPublisherInterface : public iox::popo::PublisherInterface<T, H>
+class Sample_test : public SampleTestCase, public Test
 {
-  public:
-    void publish(iox::popo::Sample<T, H>&& sample) noexcept override
-    {
-        auto s = std::move(sample); // this step is necessary since the mock method doesn't execute the move
-        return publishMock(std::move(s));
-    }
-    MOCK_METHOD1_T(publishMock, void(iox::popo::Sample<T, H>&&));
 };
 
-class SampleTest : public Test
+TEST_F(Sample_test, SendCallsInterfaceMockWithSuccessResult)
 {
-  public:
-    SampleTest()
-    {
-    }
+    ::testing::Test::RecordProperty("TEST_ID", "2ddbbcad-704f-4f0a-849c-5db8ac339668");
+    EXPECT_CALL(mockInterface, mockSend(_)).Times(1);
 
-    void SetUp() override
-    {
-    }
+    sutProducer.publish();
 
-    void TearDown() override
-    {
-    }
-
-  protected:
-};
-
-TEST_F(SampleTest, PublishesSampleViaPublisherInterfaceWorks)
-{
-    // ===== Setup ===== //
-    ChunkMock<DummyData> chunk;
-    iox::cxx::unique_ptr<DummyData> testSamplePtr{chunk.sample(), [](DummyData*) {}};
-    MockPublisherInterface<DummyData> mockPublisherInterface{};
-
-    auto sut = iox::popo::Sample<DummyData>(std::move(testSamplePtr), mockPublisherInterface);
-
-    EXPECT_CALL(mockPublisherInterface, publishMock).Times(1);
-
-    // ===== Test ===== //
-    sut.publish();
-
-    // ===== Verify ===== //
-    // ===== Cleanup ===== //
+    EXPECT_THAT(sutProducer.get(), Eq(nullptr));
 }
 
-TEST_F(SampleTest, PublishingEmptySampleCallsErrorHandler)
+TEST_F(Sample_test, SendOnMoveDestinationCallsInterfaceMock)
 {
-    // ===== Setup ===== //
-    ChunkMock<DummyData> chunk;
-    iox::cxx::unique_ptr<DummyData> testSamplePtr{chunk.sample(), [](DummyData*) {}};
-    MockPublisherInterface<DummyData> mockPublisherInterface{};
+    ::testing::Test::RecordProperty("TEST_ID", "74a62eae-d36f-47bf-9df9-695e50fcdd88");
+    EXPECT_CALL(mockInterface, mockSend(_)).Times(1);
 
-    auto sut = iox::popo::Sample<DummyData>(std::move(testSamplePtr), mockPublisherInterface);
+    auto movedSut = std::move(sutProducer);
+    movedSut.publish();
 
-    EXPECT_CALL(mockPublisherInterface, publishMock).Times(1);
-    sut.publish();
+    EXPECT_THAT(sutProducer.get(), Eq(nullptr));
+}
+
+TEST_F(Sample_test, PublishingAlreadyPublishedSampleCallsErrorHandler)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "5b0302c9-814a-4b03-813a-fd5586fc987c");
+    EXPECT_CALL(mockInterface, mockSend(_)).Times(1);
+
+    sutProducer.publish();
 
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::SetTemporaryErrorHandler(
-        [&detectedError](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
+    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
+        [&detectedError](const iox::Error error, const std::function<void()>&, const auto errorLevel) {
             detectedError.emplace(error);
             EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::MODERATE));
         });
 
-    // ===== Test ===== //
-    sut.publish();
+    sutProducer.publish();
 
-    // ===== Verify ===== //
     ASSERT_TRUE(detectedError.has_value());
     ASSERT_THAT(detectedError.value(), Eq(iox::Error::kPOSH__PUBLISHING_EMPTY_SAMPLE));
-
-    // ===== Cleanup ===== //
 }
 
-TEST_F(SampleTest, CallingGetUserHeaderFromNonConstTypeReturnsCorrectAddress)
+TEST_F(Sample_test, PublishingMovedSampleCallsErrorHandler)
 {
-    // ===== Setup ===== //
-    ChunkMock<DummyData, DummyHeader> chunk;
-    iox::cxx::unique_ptr<DummyData> testSamplePtr{chunk.sample(), [](DummyData*) {}};
-    MockPublisherInterface<DummyData, DummyHeader> mockPublisherInterface{};
+    ::testing::Test::RecordProperty("TEST_ID", "4c3a9a19-0581-4e47-aed7-f55892bef7fa");
 
-    auto sut = iox::popo::Sample<DummyData, DummyHeader>(std::move(testSamplePtr), mockPublisherInterface);
+    iox::cxx::optional<iox::Error> detectedError;
+    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
+        [&detectedError](const iox::Error error, const std::function<void()>&, const auto errorLevel) {
+            detectedError.emplace(error);
+            EXPECT_THAT(errorLevel, Eq(iox::ErrorLevel::MODERATE));
+        });
 
-    // this line is actually not needed for the tests but if it is not present gmock raises a unused-function warning in
-    // gmock-spec-builders.h which breaks the build with -Werror
-    EXPECT_CALL(mockPublisherInterface, publishMock).Times(0);
+    auto movedSut = std::move(sutProducer);
+    sutProducer.publish();
 
-    // ===== Test ===== //
-    auto& userHeader = sut.getUserHeader();
-
-    // ===== Verify ===== //
-    ASSERT_EQ(&userHeader, chunk.userHeader());
-
-    // ===== Cleanup ===== //
+    ASSERT_TRUE(detectedError.has_value());
+    ASSERT_THAT(detectedError.value(), Eq(iox::Error::kPOSH__PUBLISHING_EMPTY_SAMPLE));
 }
 
-TEST_F(SampleTest, CallingGetUserHeaderFromConstTypeReturnsCorrectAddress)
-{
-    // ===== Setup ===== //
-    ChunkMock<DummyData, DummyHeader> chunk;
-    iox::cxx::unique_ptr<const DummyData> testSamplePtr{chunk.sample(), [](const DummyData*) {}};
-
-    auto sut = iox::popo::Sample<const DummyData, const DummyHeader>(std::move(testSamplePtr));
-
-    // ===== Test ===== //
-    auto& userHeader = sut.getUserHeader();
-
-    // ===== Verify ===== //
-    ASSERT_EQ(&userHeader, chunk.userHeader());
-
-    // ===== Cleanup ===== //
-}
+} // namespace

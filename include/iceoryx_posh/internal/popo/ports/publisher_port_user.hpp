@@ -17,15 +17,15 @@
 #ifndef IOX_POSH_POPO_PORTS_PUBLISHER_PORT_USER_HPP
 #define IOX_POSH_POPO_PORTS_PUBLISHER_PORT_USER_HPP
 
+#include "iceoryx_hoofs/cxx/expected.hpp"
+#include "iceoryx_hoofs/cxx/helplets.hpp"
+#include "iceoryx_hoofs/cxx/optional.hpp"
+#include "iceoryx_hoofs/error_handling/error_handling.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_distributor.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_sender.hpp"
 #include "iceoryx_posh/internal/popo/ports/base_port.hpp"
 #include "iceoryx_posh/internal/popo/ports/publisher_port_data.hpp"
 #include "iceoryx_posh/mepoo/chunk_header.hpp"
-#include "iceoryx_utils/cxx/expected.hpp"
-#include "iceoryx_utils/cxx/helplets.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
-#include "iceoryx_utils/error_handling/error_handling.hpp"
 
 namespace iox
 {
@@ -44,8 +44,8 @@ class PublisherPortUser : public BasePort
 
     PublisherPortUser(const PublisherPortUser& other) = delete;
     PublisherPortUser& operator=(const PublisherPortUser&) = delete;
-    PublisherPortUser(PublisherPortUser&& rhs) = default;
-    PublisherPortUser& operator=(PublisherPortUser&& rhs) = default;
+    PublisherPortUser(PublisherPortUser&& rhs) noexcept = default;
+    PublisherPortUser& operator=(PublisherPortUser&& rhs) noexcept = default;
     ~PublisherPortUser() = default;
 
     /// @brief Allocate a chunk, the ownership of the SharedChunk remains in the PublisherPortUser for being able to

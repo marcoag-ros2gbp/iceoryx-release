@@ -17,9 +17,9 @@
 #ifndef IOX_POSH_POPO_BUILDING_BLOCKS_CONDITION_LISTENER_HPP
 #define IOX_POSH_POPO_BUILDING_BLOCKS_CONDITION_LISTENER_HPP
 
+#include "iceoryx_hoofs/cxx/helplets.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/condition_variable_data.hpp"
 #include "iceoryx_posh/mepoo/memory_info.hpp"
-#include "iceoryx_utils/cxx/helplets.hpp"
 
 namespace iox
 {
@@ -29,8 +29,7 @@ namespace popo
 class ConditionListener
 {
   public:
-    using NotificationVector_t = cxx::vector<cxx::BestFittingType_t<MAX_NUMBER_OF_NOTIFIERS_PER_CONDITION_VARIABLE>,
-                                             MAX_NUMBER_OF_NOTIFIERS_PER_CONDITION_VARIABLE>;
+    using NotificationVector_t = cxx::vector<cxx::BestFittingType_t<MAX_NUMBER_OF_NOTIFIERS>, MAX_NUMBER_OF_NOTIFIERS>;
 
     explicit ConditionListener(ConditionVariableData& condVarData) noexcept;
     ~ConditionListener() noexcept = default;

@@ -1,4 +1,5 @@
 // Copyright (c) 2019, 2021 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,11 +17,11 @@
 #ifndef IOX_POSH_CAPRO_SERVICE_DESCRIPTION_HPP
 #define IOX_POSH_CAPRO_SERVICE_DESCRIPTION_HPP
 
+#include "iceoryx_hoofs/cxx/serialization.hpp"
+#include "iceoryx_hoofs/cxx/string.hpp"
+#include "iceoryx_hoofs/cxx/vector.hpp"
+#include "iceoryx_hoofs/log/logstream.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
-#include "iceoryx_utils/cxx/helplets.hpp"
-#include "iceoryx_utils/cxx/serialization.hpp"
-#include "iceoryx_utils/cxx/string.hpp"
-#include "iceoryx_utils/cxx/vector.hpp"
 
 #include <cstdint>
 #include <initializer_list>
@@ -29,16 +30,12 @@ namespace iox
 {
 namespace capro
 {
-static constexpr uint16_t InvalidID = 0u;
-static const IdString_t InvalidIDString{"0"};
-static constexpr uint16_t AnyService = 0xFFFFu;
-static constexpr uint16_t AnyInstance = 0xFFFFu;
-static constexpr uint16_t AnyEvent = 0xFFFFu;
-static constexpr char AnyServiceString[]{"65535"};
-static constexpr char AnyInstanceString[]{"65535"};
-static constexpr char AnyEventString[]{"65535"};
+/// @brief Used to search for any string
+using Wildcard_t = iox::cxx::nullopt_t;
+constexpr Wildcard_t Wildcard;
+
 static constexpr int32_t MAX_NUMBER_OF_CHARS = 64;
-static constexpr size_t CLASS_HASH_ELEMENT_COUNT{4u};
+static constexpr size_t CLASS_HASH_ELEMENT_COUNT{4U};
 
 /// @brief Describes from which interface the service is coming from
 enum class Interfaces : uint16_t
@@ -71,7 +68,7 @@ constexpr const char* INTERFACE_NAMES[] = {"INTERNAL", "ESOC", "SOMEIP", "AMQP",
 enum class Scope : uint16_t
 {
     WORLDWIDE,
-    INTERNAL,
+    LOCAL,
     INVALID
 };
 
@@ -79,9 +76,7 @@ constexpr char ScopeTypeString[][MAX_NUMBER_OF_CHARS] = {"WORLDWIDE", "INTERNAL"
 
 /// @brief class for the identification of a communication event including information on the service, the service
 /// instance and the event id.
-/// In order to support different communication protocols, two types of members exist: integer and string identifiers.
-/// If string IDs are used, the integers are initialized to an invalid number. A class object can be
-/// serialized/deserialized, so it is possible to send the information e.g. over a IPC channel.
+/// A class object can be serialized/deserialized, so it is possible to send the information e.g. over a IPC channel.
 class ServiceDescription
 {
   public:
@@ -98,72 +93,54 @@ class ServiceDescription
         uint32_t data[CLASS_HASH_ELEMENT_COUNT];
     };
 
-    /// @brief construction of the capro service description using serialized strings
-    ServiceDescription(const cxx::Serialization& f_serial) noexcept;
-
     /// @brief default C'tor
     ServiceDescription() noexcept;
-    ServiceDescription(const ServiceDescription&) = default;
-    ServiceDescription(ServiceDescription&&) = default;
-    ~ServiceDescription() = default;
-
-    /// @brief construction of the capro service description using integers to create a service service description
-    ServiceDescription(uint16_t f_serviceID, uint16_t f_instanceID) noexcept;
-
-    /// @brief construction of the capro service description using fixed strings to create a service service description
-    ServiceDescription(const IdString_t& f_service, const IdString_t& f_instance) noexcept;
-
-    /// @brief construction of the capro service description using integers to create an event service description
-    ServiceDescription(uint16_t f_serviceID, uint16_t f_eventID, uint16_t f_instanceID) noexcept;
+    ServiceDescription(const ServiceDescription&) noexcept = default;
+    ServiceDescription(ServiceDescription&&) noexcept = default;
+    ~ServiceDescription() noexcept = default;
 
     /// @brief construction of the capro service description using fixed strings to create an event service description
-    ServiceDescription(const IdString_t& f_service,
-                       const IdString_t& f_instance,
-                       const IdString_t& f_event,
-                       ClassHash m_classHash = {0u, 0u, 0u, 0u},
+    ServiceDescription(const IdString_t& service,
+                       const IdString_t& instance,
+                       const IdString_t& event,
+                       ClassHash m_classHash = {0U, 0U, 0U, 0U},
                        Interfaces interfaceSource = Interfaces::INTERNAL) noexcept;
 
-    /// @brief compare operator. If wildcards AnyService, AnyInstance or AnyEvent are used as integer IDs, the
-    /// corresponding member comparisons are skipped. Otherwise, both the integer and the string members are compared.
-    bool operator==(const ServiceDescription& rhs) const;
+    /// @brief compare operator.
+    bool operator==(const ServiceDescription& rhs) const noexcept;
 
     /// @brief negation of compare operator.
-    bool operator!=(const ServiceDescription& rhs) const;
+    bool operator!=(const ServiceDescription& rhs) const noexcept;
 
     /// @brief Uses the underlying m_**String compare method to provide an order.
     ///         This is needed to use ServiceDescription in sorted containers like map or set.
-    bool operator<(const ServiceDescription& rhs) const;
+    bool operator<(const ServiceDescription& rhs) const noexcept;
 
-    ServiceDescription& operator=(const ServiceDescription&) = default;
-    ServiceDescription& operator=(ServiceDescription&&) = default;
+    ServiceDescription& operator=(const ServiceDescription&) noexcept = default;
+    ServiceDescription& operator=(ServiceDescription&&) noexcept = default;
 
     /// @brief serialization of the capro description.
-    operator cxx::Serialization() const;
+    explicit operator cxx::Serialization() const noexcept;
 
-    /// @brief Returns true if it contains a service description which does not have
-    ///             events, otherwise it returns false
-    bool hasServiceOnlyDescription() const noexcept;
+    /// @brief de-serialization of a ServiceDescription.
+    /// @param[in] serialized, Serialization object from which the ServiceDescription shall be created
+    /// @return cxx::expected that either has a ServiceDescription or cxx::Serialization::Error stored inside
+    static cxx::expected<ServiceDescription, cxx::Serialization::Error>
+    deserialize(const cxx::Serialization& serialized) noexcept;
 
     // @brief Returns if this service description is used for an RouDi-internal channel
-    bool isInternal() const noexcept;
+    bool isLocal() const noexcept;
     // @brief Set this service description to be is used for an RouDi-internal channel
-    void setInternal() noexcept;
+    void setLocal() noexcept;
     /// @brief Returns the scope of a ServiceDescription
-    Scope getScope() noexcept;
+    Scope getScope() const noexcept;
 
-    ///@brief Returns true for valid ServiceDescription
-    /// false for ServiceDescription that contains either of InvalidID/InvalidIDString  AnyService/AnyServiceString,
-    /// AnyInstance/AnyInstanceString, AnyEvent/AnyEventString.
-    bool isValid() const noexcept;
 
     ///@{
-    /// Getters for the integer and string IDs
-    uint16_t getInstanceID() const noexcept;
-    uint16_t getServiceID() const noexcept;
-    uint16_t getEventID() const noexcept;
-    IdString_t getServiceIDString() const noexcept;
-    IdString_t getInstanceIDString() const noexcept;
-    IdString_t getEventIDString() const noexcept;
+    /// Getters for the string IDs
+    const IdString_t& getServiceIDString() const noexcept;
+    const IdString_t& getInstanceIDString() const noexcept;
+    const IdString_t& getEventIDString() const noexcept;
     ///@}
 
     ///@{
@@ -175,12 +152,6 @@ class ServiceDescription
     Interfaces getSourceInterface() const noexcept;
 
   private:
-    /// @brief 16-Bit service ID
-    uint16_t m_serviceID;
-    /// @brief 16-Bit event ID
-    uint16_t m_eventID;
-    /// @brief 16-Bit instance ID
-    uint16_t m_instanceID;
     /// @brief string representation of the service
     IdString_t m_serviceString;
     /// @brief string representation of the instance
@@ -188,7 +159,6 @@ class ServiceDescription
     /// @brief string representation of the event
     IdString_t m_eventString;
 
-    bool m_hasServiceOnlyDescription = false;
     /// @brief 128-Bit class hash (32-Bit * 4)
     ClassHash m_classHash{0, 0, 0, 0};
 
@@ -206,6 +176,18 @@ class ServiceDescription
 /// @param ServiceDescription &second      Servicedescription to compare
 /// @return                                 Bool if comparison match or not
 bool serviceMatch(const ServiceDescription& first, const ServiceDescription& second) noexcept;
+
+/// @brief Convenience stream operator to easily use the `ServiceDescription` with std::ostream
+/// @param[in] stream output stream to write the message to
+/// @param[in] service ServiceDescription that shall be converted
+/// @return the reference to `stream` which was provided as input parameter
+std::ostream& operator<<(std::ostream& stream, const ServiceDescription& service) noexcept;
+
+/// @brief Convenience stream operator to easily use the `ServiceDescription` with log::LogStream
+/// @param[in] stream output LogStream to write the message to
+/// @param[in] service ServiceDescription that shall be converted
+/// @return the reference to `stream` which was provided as input parameter
+log::LogStream& operator<<(log::LogStream& stream, const ServiceDescription& service) noexcept;
 
 } // namespace capro
 } // namespace iox

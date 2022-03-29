@@ -1,4 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +17,8 @@
 #ifndef IOX_POSH_RUNTIME_PORT_CONFIG_INFO_HPP
 #define IOX_POSH_RUNTIME_PORT_CONFIG_INFO_HPP
 
+#include "iceoryx_hoofs/cxx/serialization.hpp"
 #include "iceoryx_posh/mepoo/memory_info.hpp"
-#include "iceoryx_utils/cxx/serialization.hpp"
 
 #include <cstdint>
 
@@ -30,9 +31,9 @@ namespace runtime
 /// if e.g. different types of shared memory are used (e.g. on GPU).
 struct PortConfigInfo
 {
-    static constexpr uint32_t DEFAULT_PORT_TYPE{0u};
-    static constexpr uint32_t DEFAULT_DEVICE_ID{0u};
-    static constexpr uint32_t DEFAULT_MEMORY_TYPE{0u};
+    static constexpr uint32_t DEFAULT_PORT_TYPE{0U};
+    static constexpr uint32_t DEFAULT_DEVICE_ID{0U};
+    static constexpr uint32_t DEFAULT_MEMORY_TYPE{0U};
 
     // these are intentionally not defined as enum classes for flexibility and extendibility
     // with specific user defined codes used by custom ports
@@ -41,10 +42,10 @@ struct PortConfigInfo
     uint32_t portType{DEFAULT_PORT_TYPE};
     iox::mepoo::MemoryInfo memoryInfo;
 
-    PortConfigInfo(const PortConfigInfo&) = default;
-    PortConfigInfo(PortConfigInfo&&) = default;
-    PortConfigInfo& operator=(const PortConfigInfo&) = default;
-    PortConfigInfo& operator=(PortConfigInfo&&) = default;
+    PortConfigInfo(const PortConfigInfo&) noexcept = default;
+    PortConfigInfo(PortConfigInfo&&) noexcept = default;
+    PortConfigInfo& operator=(const PortConfigInfo&) noexcept = default;
+    PortConfigInfo& operator=(PortConfigInfo&&) noexcept = default;
 
     /// @brief creates a PortConfigInfo object
     /// @param[in] portType specifies the type of port to be created
@@ -56,10 +57,14 @@ struct PortConfigInfo
 
     /// @brief creates a PortConfigInfo object from its serialization
     /// @param[in] serialization specifies the serialization from which the port is created
-    PortConfigInfo(const cxx::Serialization& serialization);
+    PortConfigInfo(const cxx::Serialization& serialization) noexcept;
 
     /// @brief creates a serilaization of the PortConfigInfo
     operator cxx::Serialization() const noexcept;
+
+    /// @brief comparison operator
+    /// @param[in] rhs the right hand side of the comparison
+    bool operator==(const PortConfigInfo& rhs) const noexcept;
 };
 
 } // namespace runtime

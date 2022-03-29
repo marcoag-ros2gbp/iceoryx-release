@@ -17,9 +17,9 @@
 #ifndef IOX_POSH_POPO_BUILDING_BLOCKS_CONDITION_VARIABLE_DATA_HPP
 #define IOX_POSH_POPO_BUILDING_BLOCKS_CONDITION_VARIABLE_DATA_HPP
 
+#include "iceoryx_hoofs/error_handling/error_handling.hpp"
+#include "iceoryx_hoofs/posix_wrapper/semaphore.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
-#include "iceoryx_utils/error_handling/error_handling.hpp"
-#include "iceoryx_utils/posix_wrapper/semaphore.hpp"
 
 #include <atomic>
 
@@ -30,16 +30,16 @@ namespace popo
 struct ConditionVariableData
 {
     ConditionVariableData() noexcept;
-    ConditionVariableData(const RuntimeName_t& runtimeName) noexcept;
+    explicit ConditionVariableData(const RuntimeName_t& runtimeName) noexcept;
 
     ConditionVariableData(const ConditionVariableData& rhs) = delete;
     ConditionVariableData(ConditionVariableData&& rhs) = delete;
     ConditionVariableData& operator=(const ConditionVariableData& rhs) = delete;
     ConditionVariableData& operator=(ConditionVariableData&& rhs) = delete;
-    ~ConditionVariableData() = default;
+    ~ConditionVariableData() noexcept = default;
 
     posix::Semaphore m_semaphore =
-        std::move(posix::Semaphore::create(posix::CreateUnnamedSharedMemorySemaphore, 0u)
+        std::move(posix::Semaphore::create(posix::CreateUnnamedSharedMemorySemaphore, 0U)
                       .or_else([](posix::SemaphoreError&) {
                           errorHandler(Error::kPOPO__CONDITION_VARIABLE_DATA_FAILED_TO_CREATE_SEMAPHORE,
                                        nullptr,
@@ -49,7 +49,7 @@ struct ConditionVariableData
 
     RuntimeName_t m_runtimeName;
     std::atomic_bool m_toBeDestroyed{false};
-    std::atomic_bool m_activeNotifications[MAX_NUMBER_OF_NOTIFIERS_PER_CONDITION_VARIABLE];
+    std::atomic_bool m_activeNotifications[MAX_NUMBER_OF_NOTIFIERS];
 };
 
 } // namespace popo

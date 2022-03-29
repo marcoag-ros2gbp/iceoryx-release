@@ -17,10 +17,10 @@
 #ifndef IOX_POSH_POPO_NOTIFICATION_INFO_HPP
 #define IOX_POSH_POPO_NOTIFICATION_INFO_HPP
 
+#include "iceoryx_hoofs/cxx/function_ref.hpp"
+#include "iceoryx_hoofs/error_handling/error_handling.hpp"
 #include "iceoryx_posh/internal/log/posh_logging.hpp"
 #include "iceoryx_posh/popo/notification_callback.hpp"
-#include "iceoryx_utils/cxx/function_ref.hpp"
-#include "iceoryx_utils/error_handling/error_handling.hpp"
 
 #include <cstdint>
 #include <limits>
@@ -37,8 +37,8 @@ class NotificationInfo
     static constexpr uint64_t INVALID_ID = std::numeric_limits<uint64_t>::max();
 
     /// @brief constructs an empty NotificationInfo
-    NotificationInfo() = default;
-    virtual ~NotificationInfo() = default;
+    NotificationInfo() noexcept = default;
+    virtual ~NotificationInfo() noexcept = default;
 
     /// @brief constructs a NotificationInfo object
     /// @param[in] notificationOrigin the origin of the event

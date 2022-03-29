@@ -21,15 +21,13 @@
 
 #include "test.hpp"
 
+namespace
+{
 using namespace ::testing;
 using namespace iox::runtime;
 using namespace iox::roudi;
+using namespace iox;
 
-
-namespace iox
-{
-namespace test
-{
 /// @brief Test goal: This test suit verifies class node
 
 class PoshRuntimeNode_test : public Test
@@ -54,6 +52,7 @@ class PoshRuntimeNode_test : public Test
 
 TEST_F(PoshRuntimeNode_test, ConstructorNodeIsSuccess)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "3bba69cc-43ea-47d3-9207-08afdd7eed9b");
     const NodeName_t nodeName{"Node"};
 
     Node node("Node");
@@ -63,6 +62,7 @@ TEST_F(PoshRuntimeNode_test, ConstructorNodeIsSuccess)
 
 TEST_F(PoshRuntimeNode_test, ConstructorNodeEmptyNodeNameIsSuccess)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "c1620584-9676-415d-af7a-a3f7263bafee");
     const NodeName_t nodeName{""};
 
     Node node("");
@@ -72,7 +72,9 @@ TEST_F(PoshRuntimeNode_test, ConstructorNodeEmptyNodeNameIsSuccess)
 
 TEST_F(PoshRuntimeNode_test, ConstructorNodeWithMaximalSizeNodeNameIsSuccess)
 {
-    const NodeName_t nodeName{"aaaaabbbbbcccccdddddaaaaabbbbbcccccdddddaaaaabbbbbcccccdddddaaaaabbbbbcccccdddddaaaaabbbbbcccccddddd"};
+    ::testing::Test::RecordProperty("TEST_ID", "286fa814-6681-411f-9ef9-924da4f4af28");
+    const NodeName_t nodeName{
+        "aaaaabbbbbcccccdddddaaaaabbbbbcccccdddddaaaaabbbbbcccccdddddaaaaabbbbbcccccdddddaaaaabbbbbcccccddddd"};
 
     Node node("aaaaabbbbbcccccdddddaaaaabbbbbcccccdddddaaaaabbbbbcccccdddddaaaaabbbbbcccccdddddaaaaabbbbbcccccddddd");
 
@@ -81,6 +83,7 @@ TEST_F(PoshRuntimeNode_test, ConstructorNodeWithMaximalSizeNodeNameIsSuccess)
 
 TEST_F(PoshRuntimeNode_test, VerifyMoveAssignmentOperatorAssignsCorrectName)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "22b51fc1-90d3-4d5b-8004-a2da3d8eb5f7");
     const NodeName_t nodeName{"@!~*"};
     Node testNode(nodeName);
     Node node("Node");
@@ -92,6 +95,7 @@ TEST_F(PoshRuntimeNode_test, VerifyMoveAssignmentOperatorAssignsCorrectName)
 
 TEST_F(PoshRuntimeNode_test, SelfMoveAssignmentIsExcluded)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "10be17a2-6253-4f16-befb-08d72379d892");
     const NodeName_t nodeName{"Node"};
     Node node1(nodeName);
     Node& node2 = node1;
@@ -103,6 +107,7 @@ TEST_F(PoshRuntimeNode_test, SelfMoveAssignmentIsExcluded)
 
 TEST_F(PoshRuntimeNode_test, VerifyMoveConstructorAssignsCorrectNodeName)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "9322a724-7da1-4728-bff3-fa0adc2a0855");
     const NodeName_t nodeNewName{"Node"};
 
     Node node(nodeNewName);
@@ -112,5 +117,4 @@ TEST_F(PoshRuntimeNode_test, VerifyMoveConstructorAssignsCorrectNodeName)
     EXPECT_THAT(nodeTest.getNodeName(), Eq(nodeNewName));
 }
 
-} // namespace test
-} // namespace iox
+} // namespace

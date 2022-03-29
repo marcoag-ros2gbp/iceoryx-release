@@ -19,9 +19,10 @@
 
 #include "test.hpp"
 
+namespace
+{
 using namespace ::testing;
 using namespace iox::roudi;
-using ::testing::Return;
 
 class RouDiEnvironment_test : public Test
 {
@@ -32,6 +33,9 @@ class RouDiEnvironment_test : public Test
 
 TEST_F(RouDiEnvironment_test, StartingRouDiTwiceLeadsToError)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "38075292-7897-4db5-b20e-f06ab324ad31");
     RouDiEnvironment m_sut{iox::RouDiConfig_t().setDefaults()};
     EXPECT_DEATH({ RouDiEnvironment m_sut2{iox::RouDiConfig_t().setDefaults()}; }, ".*");
 }
+
+} // namespace

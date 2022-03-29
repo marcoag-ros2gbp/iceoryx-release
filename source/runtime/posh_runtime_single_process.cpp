@@ -20,21 +20,19 @@ namespace iox
 {
 namespace runtime
 {
-constexpr bool DO_NOT_MAP_SHARED_MEMORY_INTO_THREAD{false};
-
-PoshRuntime*& getSingleProcessRuntime()
+PoshRuntime*& getSingleProcessRuntime() noexcept
 {
     static PoshRuntime* singleProcessRuntime = nullptr;
     return singleProcessRuntime;
 }
 
-PoshRuntime& singleProcessRuntimeFactory(cxx::optional<const RuntimeName_t*>)
+PoshRuntime& singleProcessRuntimeFactory(cxx::optional<const RuntimeName_t*>) noexcept
 {
     return *getSingleProcessRuntime();
 }
 
 PoshRuntimeSingleProcess::PoshRuntimeSingleProcess(const RuntimeName_t& name) noexcept
-    : PoshRuntime(cxx::make_optional<const RuntimeName_t*>(&name), DO_NOT_MAP_SHARED_MEMORY_INTO_THREAD)
+    : PoshRuntimeImpl(cxx::make_optional<const RuntimeName_t*>(&name), RuntimeLocation::SAME_PROCESS_LIKE_ROUDI)
 {
     auto currentFactory = PoshRuntime::getRuntimeFactory();
     if (currentFactory != nullptr && *currentFactory == PoshRuntime::defaultRuntimeFactory)

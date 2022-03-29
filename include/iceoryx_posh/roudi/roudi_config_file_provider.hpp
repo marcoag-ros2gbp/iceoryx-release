@@ -17,10 +17,10 @@
 #ifndef IOX_POSH_ROUDI_ROUDI_CONFIG_FILE_PROVIDER_HPP
 #define IOX_POSH_ROUDI_ROUDI_CONFIG_FILE_PROVIDER_HPP
 
+#include "iceoryx_hoofs/cxx/expected.hpp"
+#include "iceoryx_hoofs/cxx/string.hpp"
 #include "iceoryx_posh/iceoryx_posh_config.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
-#include "iceoryx_utils/cxx/expected.hpp"
-#include "iceoryx_utils/cxx/string.hpp"
 
 namespace iox
 {
@@ -37,7 +37,6 @@ namespace roudi
 /// MEMPOOL_WITHOUT_CHUNK_COUNT - chunk count not specified for the mempool
 enum class RouDiConfigFileParseError
 {
-    INVALID_STATE,
     NO_GENERAL_SECTION,
     INVALID_CONFIG_FILE_VERSION,
     NO_SEGMENTS,
@@ -49,8 +48,7 @@ enum class RouDiConfigFileParseError
     EXCEPTION_IN_PARSER
 };
 
-constexpr const char* ROUDI_CONFIG_FILE_PARSE_ERROR_STRINGS[] = {"INVALID_STATE",
-                                                                 "NO_GENERAL_SECTION",
+constexpr const char* ROUDI_CONFIG_FILE_PARSE_ERROR_STRINGS[] = {"NO_GENERAL_SECTION",
                                                                  "INVALID_CONFIG_FILE_VERSION",
                                                                  "NO_SEGMENTS",
                                                                  "MAX_NUMBER_OF_SEGMENTS_EXCEEDED",
@@ -67,7 +65,7 @@ class RouDiConfigFileProvider
     /// @brief interface to parse a config file which needs to be implemented for a custom parser
     /// @param[in] configFilePath to the custom RouDi config file
     /// @return a cxx::expected with either the parsed RouDiConfig_t if the parsing was successful or a parsing error
-    virtual cxx::expected<RouDiConfig_t, RouDiConfigFileParseError> parse() = 0;
+    virtual cxx::expected<RouDiConfig_t, RouDiConfigFileParseError> parse() noexcept = 0;
 
   protected:
     ConfigFilePathString_t m_customConfigFilePath;

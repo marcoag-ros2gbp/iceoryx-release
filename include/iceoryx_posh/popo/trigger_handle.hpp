@@ -17,9 +17,9 @@
 #ifndef IOX_POSH_POPO_TRIGGER_HANDLE_HPP
 #define IOX_POSH_POPO_TRIGGER_HANDLE_HPP
 
+#include "iceoryx_hoofs/cxx/method_callback.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/condition_variable_data.hpp"
 #include "iceoryx_posh/popo/trigger.hpp"
-#include "iceoryx_utils/cxx/method_callback.hpp"
 
 #include <limits>
 #include <mutex>
@@ -37,7 +37,8 @@ namespace popo
 class TriggerHandle
 {
   public:
-    TriggerHandle() = default;
+    /// @note explicitly implemented for MSVC and QNX
+    TriggerHandle() noexcept;
 
     /// @brief Creates a TriggerHandle
     /// @param[in] conditionVariableDataRef reference to a condition variable data struct
@@ -52,7 +53,7 @@ class TriggerHandle
 
     TriggerHandle(TriggerHandle&& rhs) noexcept;
     TriggerHandle& operator=(TriggerHandle&& rhs) noexcept;
-    ~TriggerHandle();
+    ~TriggerHandle() noexcept;
 
     /// @brief returns true if the TriggerHandle is valid otherwise false. A TriggerHandle is valid if
     /// m_conditionVariableDataPtr != nullptr.
