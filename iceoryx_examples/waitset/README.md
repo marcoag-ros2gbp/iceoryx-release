@@ -15,10 +15,10 @@ trigger the _TriggerHandle_.
 
 ## Introduction
 
-The WaitSet is a set where you can attach objects so that they can signal a wide variety
+The WaitSet is a set to which you can attach objects so that they can signal a wide variety
 of events to one single notifiable. The typical approach is that one creates a
-WaitSet attaches multiple subscribers, user trigger or other _Triggerables_ to it and then wait till
-one or many of the attached entities signal an event. If that happens one receives
+WaitSet, attaches multiple subscribers, user triggers or other _Triggerables_ to it and
+then wait until one or many of the attached entities signal an event. If that happens one receives
 a list of _NotificationInfos_ which is corresponding to all occurred events.
 
 ## Events and States
@@ -43,32 +43,32 @@ notification.
 
 If you attach the state `SubscriberState::HAS_DATA` you will
 be notified by `WaitSet::wait` or `WaitSet::timedWait` as long as there are received
-samples present in the subscriber.
+samples present in the subscriber queue.
 
 ## Expected Output
 
-[![asciicast](https://asciinema.org/a/407372.svg)](https://asciinema.org/a/407372)
+[![asciicast](https://asciinema.org/a/RmfrWRQIULiFGt7dC8PamKGeK.svg)](https://asciinema.org/a/RmfrWRQIULiFGt7dC8PamKGeK)
 
 ## Glossary
 
- - **Event** a state change of an object; a _Triggerable_ will signal an event via a _TriggerHandle_ to 
-     a _Notifyable_. For instance one can attach the subscriber event `DATA_RECEIVED` to _WaitSet_. 
-     This will cause the subscriber to notify the WaitSet via the _TriggerHandle_ everytime when a 
+- **Event** a state change of an object; a _Triggerable_ will signal an event via a _TriggerHandle_ to
+     a _Notifyable_. For instance one can attach the subscriber event `DATA_RECEIVED` to _WaitSet_.
+     This will cause the subscriber to notify the WaitSet via the _TriggerHandle_ everytime a
      sample was received.
-- **NotificationCallback** a callback attached to an _NotificationInfo_. It must have the
+- **NotificationCallback** a callback attached to a _NotificationInfo_. It must have the
     following signature `void ( NotificationOrigin )`. Any free function, static
-    class method and non capturing lambda is allowed. You have to ensure the lifetime of that callback.
-    This can become important when you would like to use lambdas.
+    class method and non capturing lambda expression is allowed. You have to ensure the lifetime of that callback.
+    This can become important when you would like to use lambda expressions.
 - **NotificationId** an id which is tagged to an event. It does not need to be unique
      or follow any restrictions. The user can choose any arbitrary `uint64_t`. Assigning
      the same _NotificationId_ to multiple _Events_ can be useful when you would like to
      group _Events_.
-- **NotificationInfo** a class which corresponds with _Triggers_ and is used to inform
+- **NotificationInfo** a class that corresponds to _Triggers_ and is used to inform
      the user which _Event_ occurred. You can use the _NotificationInfo_ to acquire
      the _NotificationId_, call the _NotificationCallback_ or acquire the _NotificationOrigin_.
 - **NotificationOrigin** the pointer to the class where the _Event_ originated from, short
      pointer to the _Triggerable_.
- - **Notifyable** is a class which listens to events. A _TriggerHandle_ which corresponds to a _Trigger_
+- **Notifyable** is a class which listens to events. A _TriggerHandle_ which corresponds to a _Trigger_
      is used to notify the _Notifyable_ that an event occurred. The WaitSet is a _Notifyable_.
 - **State** a specified set of values to which the members of an object are set.
 - **Trigger** a class which is used by the _Notifyable_ to acquire the information which events were
@@ -80,12 +80,12 @@ samples present in the subscriber.
 - **TriggerHandle** a thread-safe class which can be used to trigger a _Notifyable_.
      If a _TriggerHandle_ goes out of scope it will detach itself from the _Notifyable_. A _TriggerHandle_ is
      logical equal to another _Trigger_ if they:
-    - are attached to the same _Notifyable_ (or in other words they are using the
+  - are attached to the same _Notifyable_ (or in other words they are using the
        same `ConditionVariable`)
-    - they have the same _NotificationOrigin_
-    - they have the same callback to verify that they were triggered
+  - they have the same _NotificationOrigin_
+  - they have the same callback to verify that they were triggered
        (`hasNotificationCallback`)
-    - they have the same _NotificationId_
+  - they have the same _NotificationId_
 - **WaitSet** a _Notifyable_ which manages a set of _Triggers_ which are corresponding to _Events_.
      A user may attach or detach events. The _Waitset_ is listening
      to the whole set of _Triggers_ and if one or more _Triggers_ are triggered by an event it will notify
@@ -101,7 +101,7 @@ about the occurrence of an **Event**. When returning from `WaitSet::wait()` the 
 associated with **Events** which had occurred and **States** which persists. The **NotificationOrigin**, **NotificationId** and **NotificationCallback**
 are stored inside of the **NotificationInfo** and can be acquired by the user.
 
-!!! attention
+!!! warning
     Please be aware of the thread-safety restrictions of the _WaitSet_ and
     read the [Thread Safety](#thread-safety) chapter carefully.
 
@@ -136,8 +136,8 @@ This example consists of 6 use cases.
  4. `ice_waitset_individual`: A list of subscribers where every subscriber is
     handled differently.
 
- 5. `ice_waitset_sync`: We use the WaitSet to trigger a cyclic call which should
-    execute an algorithm every 100ms.
+ 5. `ice_waitset_timer_driven_execution`: We use the WaitSet to trigger a cyclic call which should
+    execute an algorithm every 1 s.
 
  6. `ice_waitset_trigger`: We create our own class which can be attached to a
     WaitSet to signal states and events.
@@ -146,24 +146,26 @@ This example consists of 6 use cases.
 
 All our examples require a running `iox-roudi` and some data to receive which will be
 send by `iox-cpp-waitset-publisher`. The publisher does not contain any _WaitSet_ specific
-logic and is explained in detail in the 
-[icedelivery example](https://github.com/eclipse-iceoryx/iceoryx/tree/master/iceoryx_examples/icedelivery).
+logic and is explained in detail in the
+[icedelivery example](https://github.com/eclipse-iceoryx/iceoryx/tree/v2.0.0/iceoryx_examples/icedelivery).
 
 ### Basic
 
-We create one subscriber and attach it to the WaitSet. Afterwards we wait for data in 
-a loop and process it on arrival. To leave the loop and exit the application 
+We create one subscriber and attach it to the WaitSet. Afterwards we wait for data in
+a loop and process it on arrival. To leave the loop and exit the application
 we have to register a signal handler that calls `waitset.markForDestruction()`
-which wakes up the blocking `waitset.wait()` whenever Ctrl+C is pressed.
+which wakes up the blocking `waitset->wait()` whenever Ctrl+C is pressed.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_basic.cpp][sig handler]-->
 ```cpp
-std::atomic_bool shutdown{false};
+std::atomic_bool keepRunning{true};
 iox::cxx::optional<iox::popo::WaitSet<>> waitset;
 
 static void sigHandler(int sig IOX_MAYBE_UNUSED)
 {
-    shutdown = true;
-    if (waiset) {
+    keepRunning = false;
+    if (waitset)
+    {
         waitset->markForDestruction();
     }
 }
@@ -176,50 +178,73 @@ Afterwards we register our signal handler which will unblock the WaitSet. Finall
 It is good practice to handle potential failure while attaching, otherwise warnings will emerge since the return value `cxx::expected` is marked to require handling.
 In our case no errors should occur since the WaitSet can accomodate the two triggers we want to attach.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_basic.cpp][create waitset]-->
 ```cpp
 waitset.emplace();
 
+// register signal handler to handle termination of the loop
 auto signalGuard = iox::posix::registerSignalHandler(iox::posix::Signal::INT, sigHandler);
 auto signalTermGuard = iox::posix::registerSignalHandler(iox::posix::Signal::TERM, sigHandler);
 
+// create subscriber
 iox::popo::Subscriber<CounterTopic> subscriber({"Radar", "FrontLeft", "Counter"});
 
+// attach subscriber to waitset
 waitset->attachState(subscriber, iox::popo::SubscriberState::HAS_DATA).or_else([](auto) {
     std::cerr << "failed to attach subscriber" << std::endl;
     std::exit(EXIT_FAILURE);
 });
 ```
 
-We create a loop which we will exit as soon as someone presses CTRL+c and our
-signal handler sets shutdown to true. If this happens `markForDestruction` turns
+We create a loop which we will exit as soon as someone presses CTRL+C and our
+signal handler sets `keepRunning` to false. If this happens `markForDestruction` turns
 the `waitset->wait()` into an empty non-blocking method and makes sure that we do
-not wait until infinity.
+not wait indefinitely.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_basic.cpp][mainloop]-->
 ```cpp
-while (!shutdown.load())
+while (keepRunning)
 {
-  auto notificationVector = waitset->wait();
+    // We block and wait for samples to arrive.
+    auto notificationVector = waitset->wait();
 
-  for (auto& notification : notificationVector)
-  {
-    if (notification->doesOriginateFrom(&subscriber))
+    for (auto& notification : notificationVector)
     {
-       subscriber.take()
-         .and_then([](auto& sample) { 
-            std::cout << " got value: " << sample->counter << std::endl; })
-         .or_else([](auto& reason IOX_MAYBE_UNUSED) { 
-             std::cout << "got no data" << std::endl; });
+        // We woke up and hence there must be at least one sample. When the sigHandler has called
+        // markForDestruction the notificationVector is empty otherwise we know which subscriber received samples
+        // since we only attached one.
+        // Best practice is to always acquire the notificationVector and iterate over all elements and then react
+        // accordingly. When this is not done and more elements are attached to the WaitSet it can cause
+        // problems since we either miss events or handle events for objects which never occurred.
+        if (notification->doesOriginateFrom(&subscriber))
+        {
+            // Consume a sample
+            subscriber.take()
+                .and_then([](auto& sample) { std::cout << " got value: " << sample->counter << std::endl; })
+                .or_else([](auto& reason) {
+                    std::cout << "got no data, return code: " << static_cast<uint64_t>(reason) << std::endl;
+                });
+            // We could consume all samples but do not need to.
+            // If there is more than one sample we will wake up again since the state of the subscriber is still
+            // iox::popo::SubscriberState::HAS_DATA in this case.
+        }
     }
-  }
 }
 ```
 
-Processing just one sample even if more might have arrived will cause `wait` to unblock again immediately to process the next sample (or shut down if requested). Due to the overhead of the `wait` call it may still be more efficient to process all samples in a loop until there are none left before waiting again, but it is not required. It would be required if we attach via `attachEvent` instead of `attachState`, since we might wake up due to the arrival of a second sample, only process the first and will not receive a wake up until a third sample arrives (which could be much later or never).
+Processing just one sample even if more might have arrived will cause `wait` to
+unblock again immediately to process the next sample (or shut down if requested).
+Due to the overhead of the `wait` call it may still be more efficient to process
+all samples in a loop until there are none left before waiting again, but it is
+not required. It would be required if we attach via `attachEvent` instead of
+`attachState`, since we might wake up due to the arrival of a second sample,
+only process the first and will not receive a wake up until a third sample
+arrives (which could be much later or never).
 
 ### Gateway
 
 We have a list of subscribers which can be subscribed to any arbitrary topic
-and everytime we received a sample we would like to send the bytestream to a socket,
+and everytime we receive a sample we would like to send the bytestream to a socket,
 write it into a file or print it to the console. But whatever we choose to do
 we perform the same task for all the subscribers. And since we process all incoming
 data right away we attach the `SubscriberEvent::DATA_RECEIVED` which notifies us
@@ -227,23 +252,28 @@ only once.
 
 Let's start by implementing our callback which prints the subscriber pointer, the
 payload size and the payload pointer to the console. We have to process all samples
-as long as there are samples in the subscriber since we attached an event that notifies
+as long as there are samples in the subscriber queue since we attached an event that notifies
 us only once. But it is impossible to miss samples since the notification is reset
 right after `wait` or `timedWait` is returned - this means if a sample arrives after
 those calls we will be notified again.
-Additionally, we would like to count the sum of all processed samples therefor we
-add a second argument called `sumOfAllSamples`, the user defined context data.
+Additionally, since we would like to count the sum of all processed samples, we
+add a second argument called `sumOfAllSamples` to the user defined context data.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_gateway.cpp][subscriber callback]-->
 ```cpp
 void subscriberCallback(iox::popo::UntypedSubscriber* const subscriber, uint64_t* const sumOfAllSamples)
 {
     while (subscriber->hasData())
     {
-        subscriber->take().and_then([&](iox::popo::Sample<const void>& sample) {
+        subscriber->take().and_then([&](auto& userPayload) {
+            auto chunkHeader = iox::mepoo::ChunkHeader::fromUserPayload(userPayload);
+            auto flags = std::cout.flags();
             std::cout << "subscriber: " << std::hex << subscriber << " length: " << std::dec
-                      << sample.getHeader()->payloadSize << " ptr: " << std::hex << sample.getHeader()->payload()
-                      << std::endl;
+                      << chunkHeader->userPayloadSize() << " ptr: " << std::hex << chunkHeader->userPayload()
+                      << std::dec << std::endl;
+            std::cout.setf(flags);
         });
+        // no nullptr check required since it is guaranteed != nullptr
         ++(*sumOfAllSamples);
     }
 }
@@ -259,21 +289,24 @@ samples. When `take()` was successful we print our message to
 the console inside of the `and_then` lambda.
 
 The `shutdownTrigger` uses a simpler callback which just informs us that we are
-exiting the program. Therefor we do not need an additional `ContextDataType` pointer.
+exiting the program. Therefore we do not need an additional `ContextDataType` pointer.
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_gateway.cpp][shutdown callback]-->
 ```cpp
 void shutdownCallback(iox::popo::UserTrigger*)
 {
-    std::cout << "CTRL+c pressed - exiting now" << std::endl;
+    std::cout << "CTRL+C pressed - exiting now" << std::endl;
 }
 ```
 
 In our `main` function we create a _WaitSet_ which has storage capacity for 3 events,
 2 subscribers and one shutdown trigger, after we registered us at our central
-broker RouDi. Then we attach our `shutdownTrigger` to handle `CTRL+c` events.
+broker RouDi. Then we attach our `shutdownTrigger` to handle `CTRL+C` events.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_gateway.cpp][create waitset]-->
 ```cpp
-iox::popo::WaitSet waitset<NUMBER_OF_SUBSCRIBERS + ONE_SHUTDOWN_TRIGGER>;
+iox::popo::WaitSet<NUMBER_OF_SUBSCRIBERS + ONE_SHUTDOWN_TRIGGER> waitset;
 
+// attach shutdownTrigger to handle CTRL+C
 waitset.attachEvent(shutdownTrigger, iox::popo::createNotificationCallback(shutdownCallback)).or_else([](auto) {
     std::cerr << "failed to attach shutdown trigger" << std::endl;
     std::exit(EXIT_FAILURE);
@@ -284,21 +317,29 @@ After that we define our `sumOfAllSamples` variable and create a vector to hold 
 attach the subscribers to our _WaitSet_ with the `SubscriberEvent::DATA_RECEIVED` event and the `subscriberCallback`.
 Everytime one of the subscribers is receiving a new sample it will trigger the _WaitSet_.
 
-!!! attention 
+!!! attention
     The user has to ensure that the contextData (`sumOfAllSamples`) in `attachEvent`
     lives as long as the attachment, with its callback, is attached otherwise
     the callback context data pointer is dangling.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_gateway.cpp][configure]-->
 ```cpp
 uint64_t sumOfAllSamples = 0U;
 
+// create subscribers and subscribe them to our service
 iox::cxx::vector<iox::popo::UntypedSubscriber, NUMBER_OF_SUBSCRIBERS> subscriberVector;
-for (auto i = 0; i < NUMBER_OF_SUBSCRIBERS; ++i)
+for (auto i = 0U; i < NUMBER_OF_SUBSCRIBERS; ++i)
 {
     subscriberVector.emplace_back(iox::capro::ServiceDescription{"Radar", "FrontLeft", "Counter"});
     auto& subscriber = subscriberVector.back();
 
-    waitset.attachEvent(subscriber, iox::popo::SubscriberEvent::DATA_RECEIVED, 0, createNotificationCallback(subscriberCallback, sumOfAllSamples))
+    /// important: the user has to ensure that the contextData (sumOfAllSamples) lives as long as
+    ///            the subscriber with its callback is attached to the listener
+    waitset
+        .attachEvent(subscriber,
+                     iox::popo::SubscriberEvent::DATA_RECEIVED,
+                     0,
+                     createNotificationCallback(subscriberCallback, sumOfAllSamples))
         .or_else([&](auto) {
             std::cerr << "failed to attach subscriber" << i << std::endl;
             std::exit(EXIT_FAILURE);
@@ -308,7 +349,7 @@ for (auto i = 0; i < NUMBER_OF_SUBSCRIBERS; ++i)
 
 `attachEvent` is returning a `cxx::expected` which informs us if attaching the event
 succeeded. In the `.or_else([&](auto){/*...*/})` part we perform the error handling
-whenever `attachEvent` failed.
+whenever `attachEvent` fails.
 
 Now our system is prepared and ready to work. We enter the event loop which
 starts with a call to our _WaitSet_ (`waitset.wait()`). This call will block until
@@ -316,13 +357,14 @@ one or more events triggered the _WaitSet_. After the call returned we get a
 vector filled with _NotificationInfos_ which are corresponding to all the events which
 triggered the _WaitSet_.
 
-We iterate through this vector, if an _Event_ originated from the `shutdownTrigger`
-we exit the program otherwise we just call the assigned callback by calling
-the trigger. This will then call `subscriberCallback` with the _NotificationOrigin_
-(the pointer to the untyped subscriber) as parameter.
+We iterate through this vector. If an _Event_ originated from the `shutdownTrigger`
+we exit the program, otherwise we just call the assigned callback by calling
+the trigger. This will then call the `subscriberCallback` with the _NotificationOrigin_
+(the pointer to the untyped subscriber) and the contextData (`sumOfAllSamples`) as parameters.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_gateway.cpp][event loop]-->
 ```cpp
-while (true)
+while (keepRunning)
 {
     auto notificationVector = waitset.wait();
 
@@ -330,15 +372,20 @@ while (true)
     {
         if (notification->doesOriginateFrom(&shutdownTrigger))
         {
-            return (EXIT_SUCCESS);
+            (*notification)();
+            keepRunning = false;
         }
         else
         {
+            // call the callback which was assigned to the notification
             (*notification)();
         }
     }
 
+    auto flags = std::cout.flags();
     std::cout << "sum of all samples: " << std::dec << sumOfAllSamples << std::endl;
+    std::cout.setf(flags);
+}
 ```
 
 ### Grouping
@@ -349,11 +396,13 @@ subscribers directly. Additionally, we would like to be notified as long as ther
 are samples in the subscriber queue therefore we have to attach the `SubscriberState::HAS_DATA`.
 
 We again start by creating a _WaitSet_ with a capacity of 5 (4 subscribers and 1 shutdownTrigger),
-and attach the `shutdownTrigger` to handle `CTRL+c`.
+and attach the `shutdownTrigger` to handle `CTRL+C`.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_grouping.cpp][create waitset]-->
 ```cpp
 iox::popo::WaitSet<NUMBER_OF_SUBSCRIBERS + ONE_SHUTDOWN_TRIGGER> waitset;
 
+// attach shutdownTrigger to handle CTRL+C
 waitset.attachEvent(shutdownTrigger).or_else([](auto) {
     std::cerr << "failed to attach shutdown trigger" << std::endl;
     std::exit(EXIT_FAILURE);
@@ -362,31 +411,34 @@ waitset.attachEvent(shutdownTrigger).or_else([](auto) {
 
 Now we create a vector of 4 subscribers.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_grouping.cpp][create subscribers]-->
 ```cpp
 iox::cxx::vector<iox::popo::UntypedSubscriber, NUMBER_OF_SUBSCRIBERS> subscriberVector;
-for (auto i = 0; i < NUMBER_OF_SUBSCRIBERS; ++i)
+for (auto i = 0U; i < NUMBER_OF_SUBSCRIBERS; ++i)
 {
     subscriberVector.emplace_back(iox::capro::ServiceDescription{"Radar", "FrontLeft", "Counter"});
-    auto& subscriber = subscriberVector.back();
 }
 ```
 
 After that, we define our two groups with the ids `FIRST_GROUP_ID` and `SECOND_GROUP_ID`
 and attach the first two subscribers with the state `SubscriberState::HAS_DATA` to the first group and the remaining subscribers to the second group.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_grouping.cpp][configure subscribers]-->
 ```cpp
-for (auto i = 0; i < NUMBER_OF_SUBSCRIBERS / 2; ++i)
+// attach the first two subscribers to waitset with a id of FIRST_GROUP_ID
+for (auto i = 0U; i < NUMBER_OF_SUBSCRIBERS / 2; ++i)
 {
-    waitset.attachEvent(subscriberVector[i], iox::popo::SubscriberState::HAS_DATA, FIRST_GROUP_ID)
+    waitset.attachState(subscriberVector[i], iox::popo::SubscriberState::HAS_DATA, FIRST_GROUP_ID)
         .or_else([&](auto) {
             std::cerr << "failed to attach subscriber" << i << std::endl;
             std::exit(EXIT_FAILURE);
         });
 }
 
+// attach the remaining subscribers to waitset with a id of SECOND_GROUP_ID
 for (auto i = NUMBER_OF_SUBSCRIBERS / 2; i < NUMBER_OF_SUBSCRIBERS; ++i)
 {
-    waitset.attachEvent(subscriberVector[i], iox::popo::SubscriberState::HAS_DATA, SECOND_GROUP_ID)
+    waitset.attachState(subscriberVector[i], iox::popo::SubscriberState::HAS_DATA, SECOND_GROUP_ID)
         .or_else([&](auto) {
             std::cerr << "failed to attach subscriber" << i << std::endl;
             std::exit(EXIT_FAILURE);
@@ -398,8 +450,9 @@ The event loop calls `auto notificationVector = waitset.wait()` in a blocking ca
 receive a vector of all the _NotificationInfos_ which are corresponding to the occurred events.
 If the _Event_ originated from the `shutdownTrigger` we terminate the program.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_grouping.cpp][[event loop][shutdown path]]-->
 ```cpp
-while (true)
+while (keepRunning)
 {
     auto notificationVector = waitset.wait();
 
@@ -407,35 +460,49 @@ while (true)
     {
         if (notification->doesOriginateFrom(&shutdownTrigger))
         {
-            return (EXIT_SUCCESS);
+            keepRunning = false;
         }
+        // ...
+    }
+
+    std::cout << std::endl;
+}
 ```
 
 The remaining part of the loop is handling the subscribers. In the first group
 we would like to print the received data to the console and in the second group
 we just dismiss the received data.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_grouping.cpp][data path]-->
 ```cpp
-    else if (notification->getNotificationId() == FIRST_GROUP_ID)
-    {
-        auto subscriber = notification->getOrigin<iox::popo::UntypedSubscriber>();
-        subscriber->take().and_then([&](iox::popo::Sample<const void>& sample) {
-            const CounterTopic* data = reinterpret_cast<const CounterTopic*>(sample.get());
-            std::cout << "received: " << std::dec << data->counter << std::endl;
-            subscriber->release(userPayload);
-        });
-    }
-    else if (notification->getNotificationId() == SECOND_GROUP_ID)
-    {
-        std::cout << "dismiss data\n";
-        auto subscriber = notification->getOrigin<iox::popo::UntypedSubscriber>();
-        subscriber->releaseQueuedData();
-    }
+// we print the received data for the first group
+else if (notification->getNotificationId() == FIRST_GROUP_ID)
+{
+    auto subscriber = notification->getOrigin<iox::popo::UntypedSubscriber>();
+    subscriber->take().and_then([&](auto& userPayload) {
+        const CounterTopic* data = static_cast<const CounterTopic*>(userPayload);
+        auto flags = std::cout.flags();
+        std::cout << "received: " << std::dec << data->counter << std::endl;
+        std::cout.setf(flags);
+        subscriber->release(userPayload);
+    });
+}
+// dismiss the received data for the second group
+else if (notification->getNotificationId() == SECOND_GROUP_ID)
+{
+    std::cout << "dismiss data\n";
+    auto subscriber = notification->getOrigin<iox::popo::UntypedSubscriber>();
+    // We need to release the data to reset the trigger hasData
+    // otherwise the WaitSet would notify us in `waitset.wait()` again
+    // instantly.
+    subscriber->releaseQueuedData();
+}
 ```
 
 !!! attention
-    In the second group we would not dismiss the data because we would be 
-    notified by the WaitSet immediately again since the subscriber has still the state `HAS_DATA`.
+    For the second group we have to call `releaseQueuedData` to release the
+    unread data. Otherwise we would be notified by the WaitSet immediately again
+    since the subscriber has still the state `HAS_DATA`.
 
 ### Individual
 
@@ -445,29 +512,32 @@ which will return true if the event originated from _NotificationOrigin_ and
 otherwise false.
 
 We start this example by creating a _WaitSet_ with the default capacity and
-attaching the `shutdownTrigger` to handle `CTRL-c`.
+attaching the `shutdownTrigger` to handle `CTRL+C`.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_individual.cpp][create waitset]-->
 ```cpp
-iox::popo::WaitSet waitset<>;
+iox::popo::WaitSet<> waitset;
 
+// attach shutdownTrigger to handle CTRL+C
 waitset.attachEvent(shutdownTrigger).or_else([](auto) {
-        std::cerr << "failed to attach shutdown trigger" << std::endl;
-        std::exit(EXIT_FAILURE);
-    });
+    std::cerr << "failed to attach shutdown trigger" << std::endl;
+    std::exit(EXIT_FAILURE);
+});
 ```
 
 Additionally, we create two subscribers and attach them with the state `SubscriberState::HAS_DATA`
-to the waitset to let them inform us whenever they have samples in their queue.
+to the _WaitSet_ to let them inform us whenever they have samples in their queue.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_individual.cpp][create subscribers]-->
 ```cpp
 iox::popo::Subscriber<CounterTopic> subscriber1({"Radar", "FrontLeft", "Counter"});
 iox::popo::Subscriber<CounterTopic> subscriber2({"Radar", "FrontLeft", "Counter"});
 
-waitset.attachEvent(subscriber1, iox::popo::SubscriberState::HAS_DATA).or_else([](auto) {
+waitset.attachState(subscriber1, iox::popo::SubscriberState::HAS_DATA).or_else([](auto) {
     std::cerr << "failed to attach subscriber1" << std::endl;
     std::exit(EXIT_FAILURE);
 });
-waitset.attachEvent(subscriber2, iox::popo::SubscriberState::HAS_DATA).or_else([](auto) {
+waitset.attachState(subscriber2, iox::popo::SubscriberState::HAS_DATA).or_else([](auto) {
     std::cerr << "failed to attach subscriber2" << std::endl;
     std::exit(EXIT_FAILURE);
 });
@@ -475,8 +545,9 @@ waitset.attachEvent(subscriber2, iox::popo::SubscriberState::HAS_DATA).or_else([
 
 With that set up we enter the event loop and handle the program termination first.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_individual.cpp][[event loop][shutdown path]]-->
 ```cpp
-while (true)
+while (keepRunning)
 {
     auto notificationVector = waitset.wait();
 
@@ -484,35 +555,57 @@ while (true)
     {
         if (notification->doesOriginateFrom(&shutdownTrigger))
         {
-            return (EXIT_SUCCESS);
+            keepRunning = false;
         }
+        // ...
+    }
+
+    std::cout << std::endl;
+}
 ```
 
-When the origin is `subscriber1` we would like to state that subscriber 1 has received the
-following number X. But for `subscriber2` we just dismiss the received samples.
+When the origin is `subscriber1` we would like to print the received data to the
+console. But for `subscriber2` we just dismiss the received samples.
 We accomplish this by asking the `event` if it originated from the
 corresponding subscriber. If so, we act.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_individual.cpp][[event loop][data path]]-->
 ```cpp
+while (keepRunning)
+{
+    auto notificationVector = waitset.wait();
+
+    for (auto& notification : notificationVector)
+    {
+        // ...
+        // process sample received by subscriber1
         else if (notification->doesOriginateFrom(&subscriber1))
         {
-            subscriber1.take().and_then([&](iox::popo::Sample<const CounterTopic>& sample) {
-                std::cout << " subscriber 1 received: " << sample->counter << std::endl;
-            });
+            subscriber1.take().and_then(
+                [&](auto& sample) { std::cout << "subscriber 1 received: " << sample->counter << std::endl; });
         }
+        // dismiss sample received by subscriber2
         if (notification->doesOriginateFrom(&subscriber2))
         {
+            // We need to release the samples to reset the trigger hasSamples
+            // otherwise the WaitSet would notify us in `waitset.wait()` again
+            // instantly.
             subscriber2.releaseQueuedData();
             std::cout << "subscriber 2 received something - dont care\n";
         }
+    }
+
+    std::cout << std::endl;
+}
 ```
 
-### Sync
+### Timer Driven Execution
 
 Let's say we have `SomeClass` and would like to execute a cyclic static method `cyclicRun`
 every second. We could execute any arbitrary algorithm in there
 but for now we just print `activation callback`. The class could look like
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_timer_driven_execution.cpp][cyclic run]-->
 ```cpp
 class SomeClass
 {
@@ -525,14 +618,15 @@ class SomeClass
 ```
 
 !!! attention
-    The user trigger is event based and always reset after the WaitSet
+    The user trigger is event based and always reset after the _WaitSet_
     has acquired all triggered objects.
 
-We begin as always, by creating a _WaitSet_ with the default capacity and by
-attaching the `shutdownTrigger` to 
+As always, we begin by creating a _WaitSet_ with the default capacity and by
+attaching the `shutdownTrigger` to
 it. In this case we do not set an event id when calling `attachEvent` which means
 the default event id  `NotificationInfo::INVALID_ID` is set.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_timer_driven_execution.cpp][create waitset]-->
 ```cpp
 iox::popo::WaitSet<> waitset;
 
@@ -547,6 +641,7 @@ After that we require a `cyclicTrigger` to trigger our
 `cyclicRun` every second. Therefore, we attach it to the `waitset` with
 eventId `0` and the callback `SomeClass::cyclicRun`
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_timer_driven_execution.cpp][create trigger]-->
 ```cpp
 iox::popo::UserTrigger cyclicTrigger;
 waitset.attachEvent(cyclicTrigger, 0U, createNotificationCallback(SomeClass::cyclicRun)).or_else([](auto) {
@@ -556,54 +651,75 @@ waitset.attachEvent(cyclicTrigger, 0U, createNotificationCallback(SomeClass::cyc
 ```
 
 The next thing we need is something which will trigger our `cyclicTrigger`
-every second. We use a infinite loop packed inside of a thread.
+every second. We use an infinite loop packed inside of a thread.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_timer_driven_execution.cpp][cyclic thread]-->
 ```cpp
 std::thread cyclicTriggerThread([&] {
     while (keepRunning.load())
     {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
         cyclicTrigger.trigger();
+        std::this_thread::sleep_for(std::chrono::seconds(1));
     }
 });
 ```
 
 Everything is set up and we can implement the event loop. As usual we handle
-`CTRL-c` which is indicated by the `shutdownTrigger`.
+`CTRL+C` which is indicated by the `shutdownTrigger`.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_timer_driven_execution.cpp][[event loop][shutdown path]]-->
 ```cpp
 while (keepRunning.load())
 {
     auto notificationVector = waitset.wait();
-    
+
     for (auto& notification : notificationVector)
     {
         if (notification->doesOriginateFrom(&shutdownTrigger))
         {
+            // CTRL+C was pressed -> exit
             keepRunning.store(false);
         }
+        // ...
+    }
+
+    std::cout << std::endl;
+}
 ```
 
 The `cyclicTrigger` callback is called in the else part.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_timer_driven_execution.cpp][[event loop][data path]]-->
 ```cpp
+while (keepRunning.load())
+{
+    auto notificationVector = waitset.wait();
+
+    for (auto& notification : notificationVector)
+    {
+        // ...
         else
         {
+            // call SomeClass::cyclicRun
             (*notification)();
         }
+    }
+
+    std::cout << std::endl;
+}
 ```
 
 ### Trigger
 
 In this example we describe how you would implement a _Triggerable_ class which
 can be attached to a _WaitSet_ or a
-[Listener](https://github.com/eclipse-iceoryx/iceoryx/tree/master/iceoryx_examples/callbacks).
+[Listener](https://github.com/eclipse-iceoryx/iceoryx/tree/v2.0.0/iceoryx_examples/callbacks).
 Our class in this example will be called `MyTriggerClass` and it can signal the _WaitSet_
 the two states `HAS_PERFORMED_ACTION` and `IS_ACTIVATED`. Furthermore, we can also attach the
 two corresponding events `PERFORM_ACTION_CALLED` and `ACTIVATE_CALLED`. The
-`PERFORMED_ACTION_CALLED` event is triggered whenever the method `performAction` is called and
+`PERFORM_ACTION_CALLED` event is triggered whenever the method `performAction` is called and
 the state `HAS_PERFORMED_ACTION` persists until someone resets the state with the method
-`reset()`. The same goes for the event `ACTIVATE_CALLED` which is triggered by an `activate()`
+`reset()`. The same applies to the event `ACTIVATE_CALLED` which is triggered by an `activate()`
 call and the corresponding state `IS_ACTIVATED` which stays until someone resets it with
 `reset()`.
 
@@ -638,6 +754,7 @@ The `UserDefinedStateEnum` can be some arbitrary enum class which requires
 `iox::popo::StateEnumIdentifier` as underlying type so that it can be identified as
 an enum which describes certain states. In our example it is called `MyTriggerClassStates`.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][state enum]-->
 ```cpp
 enum class MyTriggerClassStates : iox::popo::StateEnumIdentifier
 {
@@ -649,27 +766,28 @@ enum class MyTriggerClassStates : iox::popo::StateEnumIdentifier
 ##### Attaching Events
 
 Events can be attached to _WaitSets_ and
-[Listeners](https://github.com/eclipse-iceoryx/iceoryx/tree/master/iceoryx_examples/callbacks).
+[Listeners](https://github.com/eclipse-iceoryx/iceoryx/tree/v2.0.0/iceoryx_examples/callbacks).
 For this to work the class has to implement the following methods.
 
- 1. `void enableEvent(iox::popo::TriggerHandle&&, const UserDefinedEvenEnum)`
+ 1. `void enableEvent(iox::popo::TriggerHandle&&, const UserDefinedEventEnum)`
 
     Used by the _WaitSet_ or the _Listener_ to attach a trigger handle which signals
     certain events to them.
 
- 2. `void disableEvent(const UserDefinedStateEnum)`
+ 2. `void disableEvent(const UserDefinedEventEnum)`
 
     Called whenever the user detaches the event from the _WaitSet_ or the _Listener_.
 
  3. `void invalidateTrigger(const uint64_t uniqueTriggerId)`
 
-    Used to cleanup all loan trigger handles when the _WaitSet_ or _Listener_ goes
+    Used to clean up all loan trigger handles when the _WaitSet_ or _Listener_ goes
     out of scope.
 
 Like with the state enum the event enum can be also any arbitrary enum class which
 has `iox::popo::EventEnumIdentifier` as an underlying type. In our example it is called
 `MyTriggerClassEvents`.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][event enum]-->
 ```cpp
 enum class MyTriggerClassEvents : iox::popo::EventEnumIdentifier
 {
@@ -697,11 +815,12 @@ would point to the wrong memory location and a copy could lead to an unattached 
 if there is no more space left in the _WaitSet_. Therefore we have to delete the move
 and copy operations for now.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][no move and copy]-->
 ```cpp
-    MyTriggerClass(const MyTriggerClass&) = delete;
-    MyTriggerClass(MyTriggerClass&&) = delete;
-    MyTriggerClass& operator=(const MyTriggerClass&) = delete;
-    MyTriggerClass& operator=(MyTriggerClass&&) = delete;
+MyTriggerClass(const MyTriggerClass&) = delete;
+MyTriggerClass(MyTriggerClass&&) = delete;
+MyTriggerClass& operator=(const MyTriggerClass&) = delete;
+MyTriggerClass& operator=(MyTriggerClass&&) = delete;
 ```
 
 ##### Implementation
@@ -709,22 +828,22 @@ and copy operations for now.
 The method implementation of the two actions `activate` and `performAction` which trigger an
 event and causing a state change look like the following.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][activate and performAction]-->
 ```cpp
-class MyTriggerClass
+// When you call this method you will trigger the ACTIVATE event
+void activate(const uint64_t activationCode) noexcept
 {
-  public:
-    void activate(const uint64_t activationCode) noexcept
-    {
-        m_activationCode = activationCode;
-        m_isActivated = true;
-        m_activateTrigger.trigger();
-    }
+    m_activationCode = activationCode;
+    m_isActivated = true;
+    m_activateTrigger.trigger();
+}
 
-    void performAction() noexcept
-    {
-        m_hasPerformedAction = true;
-        m_onActionTrigger.trigger();
-    }
+// Calling this method will trigger the PERFORMED_ACTION event
+void performAction() noexcept
+{
+    m_hasPerformedAction = true;
+    m_onActionTrigger.trigger();
+}
 ```
 
 As you can see we perform some internal action and when they are finished we
@@ -735,16 +854,19 @@ Every state based _Trigger_ requires a corresponding class method which returns 
 stating if the state which led to the trigger still persists. In our case these are
 the two const methods `hasPerformedAction` and `isActivated`.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][state checks]-->
 ```cpp
-    bool hasPerformedAction() const noexcept
-    {
-        return m_hasPerformedAction;
-    }
+// required by the m_onActionTrigger to ask the class if it was triggered
+bool hasPerformedAction() const noexcept
+{
+    return m_hasPerformedAction;
+}
 
-    bool isActivated() const noexcept
-    {
-        return m_isActivated;
-    }
+// required by the m_activateTrigger to ask the class if it was triggered
+bool isActivated() const noexcept
+{
+    return m_isActivated;
+}
 ```
 
 Since the following methods should not be accessible by the public but must be
@@ -754,8 +876,9 @@ Every _Triggerable_ has to befriend the `NotificationAttorney` which provides ac
 to the private methods `enableEvent`/`enableState`, `disableEvent`/`disableState`, `invalidateTrigger` and
 `getCallbackForIsStateConditionSatisfied` to all _Notifyables_.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][attorney]-->
 ```cpp
-    friend iox::popo::NotificationAttorney;
+friend iox::popo::NotificationAttorney;
 ```
 
 The method `enableEvent` is called by the _WaitSet_ when a `MyTriggerClass` event
@@ -765,37 +888,38 @@ and forwards the `event` to which this handle belongs.
 In the switch case statement we assign the `triggerHandle` to the corresponding
 internal trigger handle.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][enableEvent]-->
 ```cpp
-    void enableEvent(iox::popo::TriggerHandle&& triggerHandle,
-                     const MyTriggerClassEvents event) noexcept
+void enableEvent(iox::popo::TriggerHandle&& triggerHandle, const MyTriggerClassEvents event) noexcept
+{
+    switch (event)
     {
-        switch (event)
-        {
-        case MyTriggerClassEvents::PERFORM_ACTION_CALLED:
-            m_onActionTrigger = std::move(triggerHandle);
-            break;
-        case MyTriggerClassEvents::ACTIVATE_CALLED:
-            m_activateTrigger = std::move(triggerHandle);
-            break;
-        }
+    case MyTriggerClassEvents::PERFORM_ACTION_CALLED:
+        m_onActionTrigger = std::move(triggerHandle);
+        break;
+    case MyTriggerClassEvents::ACTIVATE_CALLED:
+        m_activateTrigger = std::move(triggerHandle);
+        break;
     }
+}
 ```
 
-Attaching a state works in a similar fashion.
+Attaching a state works in a similar way.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][enableState]-->
 ```cpp
-    void enableState(iox::popo::TriggerHandle&& triggerHandle, const MyTriggerClassStates state) noexcept
+void enableState(iox::popo::TriggerHandle&& triggerHandle, const MyTriggerClassStates state) noexcept
+{
+    switch (state)
     {
-        switch (state)
-        {
-        case MyTriggerClassStates::HAS_PERFORMED_ACTION:
-            m_onActionTrigger = std::move(triggerHandle);
-            break;
-        case MyTriggerClassStates::IS_ACTIVATED:
-            m_activateTrigger = std::move(triggerHandle);
-            break;
-        }
+    case MyTriggerClassStates::HAS_PERFORMED_ACTION:
+        m_onActionTrigger = std::move(triggerHandle);
+        break;
+    case MyTriggerClassStates::IS_ACTIVATED:
+        m_activateTrigger = std::move(triggerHandle);
+        break;
     }
+}
 ```
 
 It is possible to use the same trigger for either a state or an event attachment
@@ -810,55 +934,58 @@ to reset the _Trigger_ when it goes out of scope. Therefore we look up the
 correct unique trigger id first and then `invalidate` it to make them unusable
 in the future.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][invalidateTrigger]-->
 ```cpp
-    void invalidateTrigger(const uint64_t uniqueTriggerId)
+void invalidateTrigger(const uint64_t uniqueTriggerId)
+{
+    if (m_onActionTrigger.getUniqueId() == uniqueTriggerId)
     {
-        if (m_onActionTrigger.getUniqueId() == uniqueTriggerId)
-        {
-            m_onActionTrigger.invalidate();
-        }
-        else if (m_activateTrigger.getUniqueId() == uniqueTriggerId)
-        {
-            m_activateTrigger.invalidate();
-        }
+        m_onActionTrigger.invalidate();
     }
+    else if (m_activateTrigger.getUniqueId() == uniqueTriggerId)
+    {
+        m_activateTrigger.invalidate();
+    }
+}
 ```
 
 Detaching an event in the _WaitSet_ will lead to a call to `disableEvent` in
 our class. In this case we have to `reset` the corresponding trigger to invalidate
 and release it from the _WaitSet_. Like before we use a switch case statement to
-find the to the event corresponding trigger.
+find the trigger corresponding to the event.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][disableEvent]-->
 ```cpp
-    void disableEvent(const MyTriggerClassEvents event) noexcept
+void disableEvent(const MyTriggerClassEvents event) noexcept
+{
+    switch (event)
     {
-        switch (event)
-        {
-        case MyTriggerClassEvents::PERFORM_ACTION_CALLED:
-            m_onActionTrigger.reset();
-            break;
-        case MyTriggerClassEvents::ACTIVATE_CALLED:
-            m_activateTrigger.reset();
-            break;
-        }
+    case MyTriggerClassEvents::PERFORM_ACTION_CALLED:
+        m_onActionTrigger.reset();
+        break;
+    case MyTriggerClassEvents::ACTIVATE_CALLED:
+        m_activateTrigger.reset();
+        break;
     }
+}
 ```
 
 The same idea is used when detaching a state.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][disableState]-->
 ```cpp
-    void disableState(const MyTriggerClassStates state) noexcept
+void disableState(const MyTriggerClassStates state) noexcept
+{
+    switch (state)
     {
-        switch (state)
-        {
-        case MyTriggerClassStates::HAS_PERFORMED_ACTION:
-            m_onActionTrigger.reset();
-            break;
-        case MyTriggerClassStates::IS_ACTIVATED:
-            m_activateTrigger.reset();
-            break;
-        }
+    case MyTriggerClassStates::HAS_PERFORMED_ACTION:
+        m_onActionTrigger.reset();
+        break;
+    case MyTriggerClassStates::IS_ACTIVATED:
+        m_activateTrigger.reset();
+        break;
     }
+}
 ```
 
 The last method we have to implement is `getCallbackForIsStateConditionSatisfied`. The
@@ -868,19 +995,20 @@ where it happened. This is the `isStateConditionSatisfied` callback. In our case
 the method pointer to `hasPerformedAction` or `isActivated` depending on which
 state was requested.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][condition satisfied]-->
 ```cpp
-    iox::popo::WaitSetIsConditionSatisfiedCallback
-    getCallbackForIsStateConditionSatisfied(const MyTriggerClassStates event) const noexcept
+iox::popo::WaitSetIsConditionSatisfiedCallback
+getCallbackForIsStateConditionSatisfied(const MyTriggerClassStates event) const noexcept
+{
+    switch (event)
     {
-        switch (event)
-        {
-        case MyTriggerClassStates::HAS_PERFORMED_ACTION:
-            return {*this, &MyTriggerClass::hasPerformedAction};
-        case MyTriggerClassStates::IS_ACTIVATED:
-            return {*this, &MyTriggerClass::isActivated};
-        }
-        return {};
+    case MyTriggerClassStates::HAS_PERFORMED_ACTION:
+        return {*this, &MyTriggerClass::hasPerformedAction};
+    case MyTriggerClassStates::IS_ACTIVATED:
+        return {*this, &MyTriggerClass::isActivated};
     }
+    return {};
+}
 ```
 
 #### Using MyTriggerClass
@@ -892,21 +1020,25 @@ notify us right away since the state still persists. The second attachment will
 be an event attachment and the _WaitSet_ informs us just once that the event
 has occurred which makes the `reset` call obsolete.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][event loop]-->
 ```cpp
 void eventLoop()
 {
-    while (true)
+    while (keepRunning)
     {
         auto notificationVector = waitset->wait();
         for (auto& notification : notificationVector)
         {
             if (notification->getNotificationId() == ACTIVATE_ID)
             {
+                // reset MyTriggerClass instance state
                 notification->getOrigin<MyTriggerClass>()->reset(MyTriggerClassStates::IS_ACTIVATED);
+                // call the callback attached to the trigger
                 (*notification)();
             }
             else if (notification->getNotificationId() == ACTION_ID)
             {
+                // reset is not required since we attached an notification here. we will be notified once
                 (*notification)();
             }
         }
@@ -918,6 +1050,7 @@ We start like in every other example by creating the `waitset` first. In this
 case the `waitset` and the `triggerClass` are stored inside of two global
 `optional`'s and have to be created with an `emplace` call.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][create]-->
 ```cpp
 waitset.emplace();
 triggerClass.emplace();
@@ -926,49 +1059,59 @@ triggerClass.emplace();
 After that we can attach the `IS_ACTIVATED` state and `PERFORM_ACTION_CALLED` event
 to the waitset and provide a callback for them.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][attach]-->
 ```cpp
-    waitset->attachState(*triggerClass,
-                         MyTriggerClassStates::IS_ACTIVATED,
-                         ACTIVATE_ID,
-                         iox::popo::createNotificationCallback(callOnActivate))
-        .or_else([](auto) {
-            std::cerr << "failed to attach MyTriggerClassStates::IS_ACTIVATED state " << std::endl;
-            std::exit(EXIT_FAILURE);
-        });
-    waitset
-        ->attachEvent(
-            *triggerClass,
-            MyTriggerClassEvents::PERFORM_ACTION_CALLED,
-            ACTION_ID,
-            iox::popo::createNotificationCallback(MyTriggerClass::callOnAction))
-        .or_else([](auto) {
-            std::cerr << "failed to attach MyTriggerClassEvents::PERFORM_ACTION_CALLED event " << std::endl;
-            std::exit(EXIT_FAILURE);
-        });
+// attach the IS_ACTIVATED state to the waitset and assign a callback
+waitset
+    ->attachState(*triggerClass,
+                  MyTriggerClassStates::IS_ACTIVATED,
+                  ACTIVATE_ID,
+                  iox::popo::createNotificationCallback(callOnActivate))
+    .or_else([](auto) {
+        std::cerr << "failed to attach MyTriggerClassStates::IS_ACTIVATED state " << std::endl;
+        std::exit(EXIT_FAILURE);
+    });
+// attach the PERFORM_ACTION_CALLED event to the waitset and assign a callback
+waitset
+    ->attachEvent(*triggerClass,
+                  MyTriggerClassEvents::PERFORM_ACTION_CALLED,
+                  ACTION_ID,
+                  iox::popo::createNotificationCallback(MyTriggerClass::callOnAction))
+    .or_else([](auto) {
+        std::cerr << "failed to attach MyTriggerClassEvents::PERFORM_ACTION_CALLED event " << std::endl;
+        std::exit(EXIT_FAILURE);
+    });
 ```
 
 Now that everything is set up we can start our `eventLoop` in a new thread.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][start event loop]-->
 ```cpp
-    std::thread eventLoopThread(eventLoop);
+std::thread eventLoopThread(eventLoop);
 ```
 
 A thread which will trigger an event every second is started with the following
 lines.
 
+<!--[geoffrey][iceoryx_examples/waitset/ice_waitset_trigger.cpp][start trigger]-->
 ```cpp
-    std::thread triggerThread([&] {
-        uint64_t activationCode = 1U;
-        for (auto i = 0; i < 10; ++i)
-        {
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            triggerClass->activate(activationCode++);
-            std::this_thread::sleep_for(std::chrono::seconds(1));
-            triggerClass->performAction();
-        }
-    });
+std::thread triggerThread([&] {
+    uint64_t activationCode = 1U;
+    for (auto i = 0U; i < 10; ++i)
+    {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        triggerClass->activate(activationCode++);
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        triggerClass->performAction();
+    }
+
+    std::cout << "Sending final trigger" << std::endl;
+    keepRunning = false;
+    triggerClass->activate(activationCode++);
+    triggerClass->performAction();
+});
 ```
 
 <center>
-[Check out waitset on GitHub :fontawesome-brands-github:](https://github.com/eclipse-iceoryx/iceoryx/tree/master/iceoryx_examples/waitset){ .md-button }
+[Check out waitset on GitHub :fontawesome-brands-github:](https://github.com/eclipse-iceoryx/iceoryx/tree/v2.0.0/iceoryx_examples/waitset){ .md-button }
 </center>

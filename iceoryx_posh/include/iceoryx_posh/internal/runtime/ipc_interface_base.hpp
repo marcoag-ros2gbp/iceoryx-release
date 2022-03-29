@@ -1,5 +1,5 @@
 // Copyright (c) 2019 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,17 +18,18 @@
 #ifndef IOX_POSH_RUNTIME_IPC_INTERFACE_BASE_HPP
 #define IOX_POSH_RUNTIME_IPC_INTERFACE_BASE_HPP
 
+#include "iceoryx_hoofs/cxx/deadline_timer.hpp"
+#include "iceoryx_hoofs/cxx/optional.hpp"
+#include "iceoryx_hoofs/internal/posix_wrapper/unix_domain_socket.hpp"
+#include "iceoryx_hoofs/internal/relocatable_pointer/relative_pointer.hpp"
+#include "iceoryx_hoofs/internal/units/duration.hpp"
+#include "iceoryx_hoofs/platform/fcntl.hpp"
+#include "iceoryx_hoofs/platform/stat.hpp"
+#include "iceoryx_hoofs/platform/types.hpp"
+#include "iceoryx_hoofs/platform/unistd.hpp"
+#include "iceoryx_hoofs/posix_wrapper/named_pipe.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
 #include "iceoryx_posh/internal/runtime/ipc_message.hpp"
-#include "iceoryx_utils/cxx/deadline_timer.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
-#include "iceoryx_utils/internal/posix_wrapper/unix_domain_socket.hpp"
-#include "iceoryx_utils/internal/relocatable_pointer/relative_pointer.hpp"
-#include "iceoryx_utils/internal/units/duration.hpp"
-#include "iceoryx_utils/platform/fcntl.hpp"
-#include "iceoryx_utils/platform/stat.hpp"
-#include "iceoryx_utils/platform/types.hpp"
-#include "iceoryx_utils/platform/unistd.hpp"
 
 #include <cstdint>
 #include <errno.h>
@@ -55,15 +56,16 @@ enum class IpcMessageType : int32_t
     CREATE_PUBLISHER_ACK,
     CREATE_SUBSCRIBER,
     CREATE_SUBSCRIBER_ACK,
+    CREATE_CLIENT,
+    CREATE_CLIENT_ACK,
+    CREATE_SERVER,
+    CREATE_SERVER_ACK,
     CREATE_INTERFACE,
     CREATE_INTERFACE_ACK,
-    CREATE_APPLICATION,
-    CREATE_APPLICATION_ACK,
     CREATE_CONDITION_VARIABLE,
     CREATE_CONDITION_VARIABLE_ACK,
     CREATE_NODE,
     CREATE_NODE_ACK,
-    FIND_SERVICE,
     KEEPALIVE,
     TERMINATION,
     TERMINATION_ACK,
@@ -73,7 +75,6 @@ enum class IpcMessageType : int32_t
     APP_WAIT,
     WAKEUP_TRIGGER,
     REPLAY,
-    SERVICE_REGISTRY_CHANGE_COUNTER,
     MESSAGE_NOT_SUPPORTED,
     // etc..
     END,
@@ -83,17 +84,27 @@ enum class IpcMessageType : int32_t
 enum class IpcMessageErrorType : int32_t
 {
     BEGIN,
-    INVALID_STATE,
     NOTYPE,
     /// A publisher could not be created unique
     NO_UNIQUE_CREATED,
+    INTERNAL_SERVICE_DESCRIPTION_IS_FORBIDDEN,
+    REQUEST_PUBLISHER_INVALID_RESPONSE,
     REQUEST_PUBLISHER_WRONG_IPC_MESSAGE_RESPONSE,
     REQUEST_PUBLISHER_NO_WRITABLE_SHM_SEGMENT,
+    REQUEST_SUBSCRIBER_INVALID_RESPONSE,
     REQUEST_SUBSCRIBER_WRONG_IPC_MESSAGE_RESPONSE,
+    REQUEST_CLIENT_INVALID_RESPONSE,
+    REQUEST_CLIENT_WRONG_IPC_MESSAGE_RESPONSE,
+    REQUEST_CLIENT_NO_WRITABLE_SHM_SEGMENT,
+    REQUEST_SERVER_INVALID_RESPONSE,
+    REQUEST_SERVER_WRONG_IPC_MESSAGE_RESPONSE,
+    REQUEST_SERVER_NO_WRITABLE_SHM_SEGMENT,
+    REQUEST_CONDITION_VARIABLE_INVALID_RESPONSE,
     REQUEST_CONDITION_VARIABLE_WRONG_IPC_MESSAGE_RESPONSE,
-    REQUEST_EVENT_VARIABLE_WRONG_IPC_MESSAGE_RESPONSE,
     PUBLISHER_LIST_FULL,
     SUBSCRIBER_LIST_FULL,
+    CLIENT_LIST_FULL,
+    SERVER_LIST_FULL,
     CONDITION_VARIABLE_LIST_FULL,
     EVENT_VARIABLE_LIST_FULL,
     NODE_DATA_LIST_FULL,
@@ -242,7 +253,7 @@ class IpcInterfaceBase
     uint64_t m_maxMessageSize{0U};
     uint64_t m_maxMessages{0U};
     iox::posix::IpcChannelSide m_channelSide{posix::IpcChannelSide::CLIENT};
-    IpcChannelType m_ipcChannel;
+    platform::IoxIpcChannelType m_ipcChannel;
 };
 
 } // namespace runtime

@@ -1,4 +1,4 @@
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,17 +17,15 @@
 #ifndef IOX_BINDING_C_SERVICE_DESCRIPTION_H
 #define IOX_BINDING_C_SERVICE_DESCRIPTION_H
 
+#include "iceoryx_binding_c/config.h"
+
 #include <stdint.h>
 
 typedef struct
 {
-    uint16_t serviceId;
-    uint16_t instanceId;
-    uint16_t eventId;
-
-    char serviceString[100U];
-    char instanceString[100U];
-    char eventString[100U];
+    char serviceString[IOX_CONFIG_SERVICE_STRING_SIZE];
+    char instanceString[IOX_CONFIG_SERVICE_STRING_SIZE];
+    char eventString[IOX_CONFIG_SERVICE_STRING_SIZE];
 } iox_service_description_t;
 
 #endif

@@ -22,8 +22,9 @@
 
 #include "test.hpp"
 
+namespace
+{
 using namespace ::testing;
-using ::testing::Return;
 
 using namespace iox::gw;
 
@@ -36,9 +37,12 @@ class InterfacePortRequestStackBlowup_test : public RouDi_GTest
 
 TEST_F(InterfacePortRequestStackBlowup_test, RouDiMustContinue)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "d912182d-2a74-4056-be1d-19b538c10c9c");
     iox::runtime::PoshRuntime::initRuntime("interface_port_request_stack_blowup");
     GatewayBase sut(iox::capro::Interfaces::INTERNAL);
     iox::capro::CaproMessage caproMessage;
     // we don't care if there are capro messages or not, we just want to have a check that there was no segfault
     EXPECT_THAT(sut.getCaProMessage(caproMessage), AnyOf(true, false));
 }
+
+} // namespace

@@ -1,4 +1,5 @@
 // Copyright (c) 2021 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2021 by Apex.AI. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,26 +15,25 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "iceoryx_hoofs/platform/getopt.hpp"
 #include "iceoryx_posh/internal/log/posh_logging.hpp"
+#include "iceoryx_posh/internal/popo/building_blocks/unique_port_id.hpp"
 #include "iceoryx_posh/roudi/iceoryx_roudi_app.hpp"
 #include "iceoryx_posh/roudi/roudi_cmd_line_parser_config_file_option.hpp"
 #include "iceoryx_posh/roudi/roudi_config_toml_file_provider.hpp"
-#include "iceoryx_utils/platform/getopt.hpp"
 
 #include "test.hpp"
 
 #include <regex>
 
+namespace
+{
 using namespace ::testing;
-using ::testing::Return;
 
 using iox::roudi::IceOryxRouDiApp;
 using namespace iox::config;
+using namespace iox;
 
-namespace iox
-{
-namespace test
-{
 class OutputBuffer
 {
   public:
@@ -119,6 +119,7 @@ class IceoryxRoudiApp_test : public Test
 
 TEST_F(IceoryxRoudiApp_test, VerifyConstructorIsSuccessful)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "530346f1-7405-4640-9f5f-37e45073f95d");
     constexpr uint8_t NUMBER_OF_ARGS{1U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -137,6 +138,7 @@ TEST_F(IceoryxRoudiApp_test, VerifyConstructorIsSuccessful)
 
 TEST_F(IceoryxRoudiApp_test, CreateTwoRoudiAppIsSuccessful)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "a095ea92-be03-4157-959a-72b1cb285b46");
     constexpr uint8_t NUMBER_OF_ARGS{1U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -155,6 +157,7 @@ TEST_F(IceoryxRoudiApp_test, CreateTwoRoudiAppIsSuccessful)
 
 TEST_F(IceoryxRoudiApp_test, VerifyRunMethodWithFalseConditionReturnExitSuccess)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "e25e69a5-4d41-4020-85ca-9f585ac09919");
     constexpr uint8_t NUMBER_OF_ARGS{1U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -175,6 +178,7 @@ TEST_F(IceoryxRoudiApp_test, VerifyRunMethodWithFalseConditionReturnExitSuccess)
 
 TEST_F(IceoryxRoudiApp_test, ConstructorCalledWithArgUniqueIdTwoTimesReturnError)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "72ec1d9e-7e29-4a9b-a8dd-cb4de82683cb");
     constexpr uint8_t NUMBER_OF_ARGS{3U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -189,22 +193,34 @@ TEST_F(IceoryxRoudiApp_test, ConstructorCalledWithArgUniqueIdTwoTimesReturnError
     ASSERT_FALSE(cmdLineArgs.has_error());
 
     iox::cxx::optional<iox::Error> detectedError;
-    auto errorHandlerGuard = iox::ErrorHandler::SetTemporaryErrorHandler(
-        [&detectedError](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
+    iox::cxx::optional<iox::ErrorLevel> detectedErrorLevel;
+    auto errorHandlerGuard = iox::ErrorHandler::setTemporaryErrorHandler(
+        [&](const iox::Error error, const std::function<void()>, const iox::ErrorLevel errorLevel) {
             detectedError.emplace(error);
-            EXPECT_EQ(errorLevel, iox::ErrorLevel::MODERATE);
+            detectedErrorLevel.emplace(errorLevel);
         });
 
     IceoryxRoudiApp_Child roudi(cmdLineArgs.value(), iox::RouDiConfig_t().setDefaults());
+    // we don't know if setUniqueRouDiId was called before, therefore ignore any error
+    detectedError.reset();
+    detectedErrorLevel.reset();
 
     IceoryxRoudiApp_Child roudiTest(cmdLineArgs.value(), iox::RouDiConfig_t().setDefaults());
 
+    // now we know that setUniqueRouDiId was called and therefore the error handler must also be called
     ASSERT_TRUE(detectedError.has_value());
-    EXPECT_EQ(detectedError.value(), iox::Error::kPOPO__TYPED_UNIQUE_ID_ROUDI_HAS_ALREADY_DEFINED_UNIQUE_ID);
+    ASSERT_TRUE(detectedErrorLevel.has_value());
+    EXPECT_THAT(detectedError.value(),
+                Eq(iox::Error::kPOPO__TYPED_UNIQUE_ID_ROUDI_HAS_ALREADY_DEFINED_CUSTOM_UNIQUE_ID));
+    EXPECT_THAT(detectedErrorLevel.value(), Eq(iox::ErrorLevel::SEVERE));
+
+    // reset unique RouDi ID
+    iox::popo::UniquePortId::setUniqueRouDiId(iox::roudi::DEFAULT_UNIQUE_ROUDI_ID);
 }
 
 TEST_F(IceoryxRoudiApp_test, ConstructorCalledWithArgVersionSetRunVariableToFalse)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "207dd5ea-a00c-48f1-a8de-5ef5a0c5235b");
     constexpr uint8_t NUMBER_OF_ARGS{2U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -223,6 +239,7 @@ TEST_F(IceoryxRoudiApp_test, ConstructorCalledWithArgVersionSetRunVariableToFals
 
 TEST_F(IceoryxRoudiApp_test, VerifyConstructorWithEmptyConfigSetRunVariableToFalse)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "0a193ef0-b6c5-4e5b-998d-7f86102814e0");
     constexpr uint8_t NUMBER_OF_ARGS{1U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -245,6 +262,7 @@ TEST_F(IceoryxRoudiApp_test, VerifyConstructorWithEmptyConfigSetRunVariableToFal
 
 TEST_F(IceoryxRoudiApp_test, VerifyConstructorUsingConfigWithSegmentWithoutMemPoolSetRunVariableToFalse)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "542ff7f7-9365-40a4-a7ed-e67ba5735b9e");
     constexpr uint8_t NUMBER_OF_ARGS{1U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -271,5 +289,4 @@ TEST_F(IceoryxRoudiApp_test, VerifyConstructorUsingConfigWithSegmentWithoutMemPo
     EXPECT_NE(output.find(expected), std::string::npos);
 }
 
-} // namespace test
-} // namespace iox
+} // namespace

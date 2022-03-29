@@ -16,14 +16,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Build icedelivery example
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(example_icedelivery_in_c)
 
 include(GNUInstallDirs)
 
 find_package(iceoryx_posh CONFIG REQUIRED)
 find_package(iceoryx_binding_c CONFIG REQUIRED)
-find_package(iceoryx_utils CONFIG REQUIRED)
+find_package(iceoryx_hoofs CONFIG REQUIRED)
 
 get_target_property(ICEORYX_CXX_STANDARD iceoryx_posh::iceoryx_posh CXX_STANDARD)
 include(IceoryxPlatform)

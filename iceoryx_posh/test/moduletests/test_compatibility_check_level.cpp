@@ -15,16 +15,18 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "iceoryx_hoofs/log/logging.hpp"
+#include "iceoryx_hoofs/log/logstream.hpp"
+#include "iceoryx_hoofs/testing/mocks/logger_mock.hpp"
 #include "iceoryx_posh/version/compatibility_check_level.hpp"
-#include "iceoryx_utils/log/logging.hpp"
-#include "iceoryx_utils/log/logstream.hpp"
-#include "iceoryx_utils/testing/mocks/logger_mock.hpp"
 
 #include "test.hpp"
 
 #include <cstdint>
 #include <limits>
 
+namespace
+{
 using namespace ::testing;
 using namespace iox::version;
 
@@ -41,6 +43,7 @@ class CompatibilityCheckLevel_test : public Test
 
 TEST_F(CompatibilityCheckLevel_test, OffLeadsToCorrectString)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "a36d8dd3-1004-4000-991b-bc131d02b26e");
     auto sut = CompatibilityCheckLevel::OFF;
 
     {
@@ -55,6 +58,7 @@ TEST_F(CompatibilityCheckLevel_test, OffLeadsToCorrectString)
 
 TEST_F(CompatibilityCheckLevel_test, MajorLeadsToCorrectString)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "77b29d8e-0ff8-45af-8826-d391f45063df");
     auto sut = CompatibilityCheckLevel::MAJOR;
 
     {
@@ -69,6 +73,7 @@ TEST_F(CompatibilityCheckLevel_test, MajorLeadsToCorrectString)
 
 TEST_F(CompatibilityCheckLevel_test, MinorLeadsToCorrectString)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "f9e7ba62-6474-4b41-91a0-725d6a6e7baf");
     auto sut = CompatibilityCheckLevel::MINOR;
 
     {
@@ -83,6 +88,7 @@ TEST_F(CompatibilityCheckLevel_test, MinorLeadsToCorrectString)
 
 TEST_F(CompatibilityCheckLevel_test, PatchLeadsToCorrectString)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "5f77f683-3de0-438d-af0c-424a1b24b99d");
     auto sut = CompatibilityCheckLevel::PATCH;
 
     {
@@ -97,6 +103,7 @@ TEST_F(CompatibilityCheckLevel_test, PatchLeadsToCorrectString)
 
 TEST_F(CompatibilityCheckLevel_test, CommitIdLeadsToCorrectString)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "55bc3dbe-9a85-4cf7-9f9e-441c72e7c895");
     auto sut = CompatibilityCheckLevel::COMMIT_ID;
 
     {
@@ -111,6 +118,7 @@ TEST_F(CompatibilityCheckLevel_test, CommitIdLeadsToCorrectString)
 
 TEST_F(CompatibilityCheckLevel_test, BuildDateLeadsToCorrectString)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "c0259873-8840-48ac-8f3c-f99e8bcc7691");
     auto sut = CompatibilityCheckLevel::BUILD_DATE;
 
     {
@@ -122,3 +130,5 @@ TEST_F(CompatibilityCheckLevel_test, BuildDateLeadsToCorrectString)
     EXPECT_THAT(m_loggerMock.m_logs[0].message, Eq("CompatibilityCheckLevel::BUILD_DATE"));
     EXPECT_THAT(m_loggerMock.m_logs[0].level, Eq(iox::log::LogLevel::kWarn));
 }
+
+} // namespace

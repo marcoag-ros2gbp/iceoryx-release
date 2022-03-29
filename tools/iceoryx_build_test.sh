@@ -17,7 +17,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# This script builds iceoryx_utils und iceoryx_posh and executes all tests
+# This script builds iceoryx_hoofs und iceoryx_posh and executes all tests
 
 set -e
 
@@ -31,6 +31,7 @@ BUILD_DIR=$WORKSPACE/build
 NUM_JOBS=""
 PACKAGE="OFF"
 CLEAN_BUILD=false
+NO_BUILD=false
 BUILD_TYPE=""
 BUILD_DOC="OFF"
 STRICT_FLAG="OFF"
@@ -49,19 +50,19 @@ EXAMPLE_FLAG="OFF"
 BUILD_ALL_FLAG="OFF"
 BUILD_SHARED="OFF"
 TOML_FLAG="ON"
-EXAMPLES="callbacks callbacks_in_c icedelivery singleprocess waitset icehello iceoptions ice_access_control"
-COMPONENTS="iceoryx_posh iceoryx_utils iceoryx_introspection iceoryx_binding_c iceoryx_component iceoryx_dds"
+COMPONENTS="iceoryx_posh iceoryx_hoofs iceoryx_introspection iceoryx_binding_c iceoryx_component iceoryx_dds"
 TOOLCHAIN_FILE=""
+CMAKE_CXX_FLAGS=""
 
 while (( "$#" )); do
   case "$1" in
     -b|--build-dir)
-        BUILD_DIR=$(realpath $2)
+        BUILD_DIR=$(realpath "$2")
         shift 2
         ;;
     -t|--toolchain-file)
         TOOLCHAIN_FILE="-DCMAKE_TOOLCHAIN_FILE=$2"
-        echo $TOOLCHAIN_FILE
+        echo "$TOOLCHAIN_FILE"
         shift 2
         ;;
     -c|--coverage)
@@ -80,6 +81,10 @@ while (( "$#" )); do
         ;;
     "clean")
         CLEAN_BUILD=true
+        shift 1
+        ;;
+    "no-build")
+        NO_BUILD=true
         shift 1
         ;;
     "release")
@@ -105,7 +110,7 @@ while (( "$#" )); do
         ;;
     "test-add-user")
         TEST_ADD_USER="ON"
-        $WORKSPACE/tools/add_test_users.sh check
+        "$WORKSPACE"/tools/scripts/add_test_users.sh check
         shift 1
         ;;
     "dds-gateway")
@@ -175,6 +180,11 @@ while (( "$#" )); do
         export CXX=$(which clang++)
         shift 1
         ;;
+    "libcxx")
+        echo " [i] Build with libc++ library"
+        CMAKE_CXX_FLAGS="-stdlib=libc++"
+        shift 1
+        ;;
     "doc")
         echo " [i] Build and generate doxygen"
         BUILD_DOC="ON"
@@ -192,27 +202,29 @@ while (( "$#" )); do
         echo "                          Possible arguments: 'all', 'unit', 'integration', 'only-timing-tests'"
         echo "    -t --toolchain-file   Specify an absolute path to a toolchain file for cross-compiling e.g. (-t $(pwd)/tools/qnx/qnx710.nto.toolchain.aarch64.cmake)"
         echo "Args:"
-        echo "    clean                 Delete the build/ directory before build-step"
-        echo "    release               Build with -O3"
-        echo "    debug                 Build debug configuration -g"
-        echo "    relwithdebinfo        Build with -O2 -DNDEBUG"
-        echo "    examples              Build all examples"
-        echo "    build-all             Build all extensions and all examples"
-        echo "    out-of-tree           Out-of-tree build for CI"
-        echo "    build-strict          Build is performed with '-Werror'"
-        echo "    build-shared          Build shared libs (iceoryx is built as static lib per default)"
-        echo "    build-test            Build all tests (doesn't run)"
-        echo "    test-add-user         Create additional useraccounts in system for testing access control (default off)"
-        echo "    package               Create a debian package from clean build in build_package"
-        echo "    test                  Build and run all tests in all iceoryx components"
-        echo "    toml-config-off       Build without TOML File support"
-        echo "    dds-gateway           Build the iceoryx dds gateway"
         echo "    binding-c             Build the iceoryx C-Binding"
-        echo "    one-to-many-only      Restrict to 1:n communication only"
+        echo "    build-all             Build all extensions and all examples"
+        echo "    build-shared          Build shared libs (iceoryx is built as static lib per default)"
+        echo "    build-strict          Build is performed with '-Werror'"
+        echo "    build-test            Build all tests (doesn't run)"
         echo "    clang                 Build with clang compiler (should be installed already)"
-        echo "    sanitize              Build with sanitizers"
-        echo "    roudi-env             Build the roudi environment"
+        echo "    no-build              Does not trigger a build, can be used in combination with 'clean' to remove the build dir"
+        echo "    clean                 Delete the build/ directory before build-step"
+        echo "    dds-gateway           Build the iceoryx dds gateway"
+        echo "    debug                 Build debug configuration -g"
+        echo "    doc                   Build and generate doxygen"
         echo "    help                  Print this help"
+        echo "    examples              Build all examples"
+        echo "    one-to-many-only      Restrict to 1:n communication only"
+        echo "    out-of-tree           Out-of-tree build for CI"
+        echo "    package               Create a debian package from clean build in build_package"
+        echo "    sanitize              Build with sanitizers"
+        echo "    release               Build with -O3"
+        echo "    relwithdebinfo        Build with -O2 -DNDEBUG"
+        echo "    test                  Build and run all tests in all iceoryx components"
+        echo "    test-add-user         Create additional useraccounts in system for testing access control (default off)"
+        echo "    toml-config-off       Build without TOML File support"
+        echo "    roudi-env             Build the roudi environment"
         echo ""
         echo "e.g. iceoryx_build_test.sh -b ./build-scripted clean test"
         echo "for gcov report: iceoryx_build_test.sh clean -c unit"
@@ -220,7 +232,7 @@ while (( "$#" )); do
         ;;
     *)
         echo "Invalid argument '$1'. Try 'help' for options."
-        exit -1
+        exit 1
         ;;
   esac
 done
@@ -249,69 +261,82 @@ if [ "$PACKAGE" == "ON" ]; then
 fi
 
 # clean build folders
-if [ $CLEAN_BUILD == true ]
-then
+if [ "$CLEAN_BUILD" == true ] && [ -d "$BUILD_DIR" ]; then
     echo " [i] Cleaning build directory"
-    cd $WORKSPACE
-    rm -rf $BUILD_DIR/*
+    cd "$WORKSPACE"
+    rm -rf "${BUILD_DIR:?}/"*
 fi
 
-# create a new build directory and change the current working directory
-echo " [i] Preparing build directory"
-cd $WORKSPACE
-mkdir -p $BUILD_DIR
-cd $BUILD_DIR
-echo " [i] Current working directory: $(pwd)"
+if [ "$NO_BUILD" == false ]; then
+
+    # create a new build directory and change the current working directory
+    echo " [i] Preparing build directory"
+    cd "$WORKSPACE"
+    mkdir -p "$BUILD_DIR"
+    cd "$BUILD_DIR"
+    echo " [i] Current working directory: $(pwd)"
 
 
-echo ">>>>>> Start building iceoryx package <<<<<<"
-cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
-      -DBUILD_ALL=$BUILD_ALL_FLAG \
-      -DBUILD_STRICT=$STRICT_FLAG \
-      -DCMAKE_INSTALL_PREFIX=$ICEORYX_INSTALL_PREFIX \
-      -DBUILD_TEST=$TEST_FLAG \
-      -DCOVERAGE=$COV_FLAG \
-      -DROUDI_ENVIRONMENT=$ROUDI_ENV_FLAG \
-      -DEXAMPLES=$EXAMPLE_FLAG \
-      -DTOML_CONFIG=$TOML_FLAG \
-      -DBUILD_DOC=$BUILD_DOC \
-      -DDDS_GATEWAY=$DDS_GATEWAY_FLAG \
-      -DBINDING_C=$BINDING_C_FLAG \
-      -DONE_TO_MANY_ONLY=$ONE_TO_MANY_ONLY_FLAG \
-      -DBUILD_SHARED_LIBS=$BUILD_SHARED \
-      -DSANITIZE=$SANITIZE_FLAG \
-      -DTEST_WITH_ADDITIONAL_USER=$TEST_ADD_USER $TOOLCHAIN_FILE \
-      $WORKSPACE/iceoryx_meta
-
-cmake --build . --target install -- -j$NUM_JOBS
-echo ">>>>>> Finished building iceoryx <<<<<<"
-
-if [ "$PACKAGE" == "ON" ]; then
     echo ">>>>>> Start building iceoryx package <<<<<<"
-    cpack
-    echo ">>>>>> Finished building iceoryx package <<<<<<"
-fi
+    cmake -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
+          -DBUILD_ALL=$BUILD_ALL_FLAG \
+          -DBUILD_STRICT=$STRICT_FLAG \
+          -DCMAKE_INSTALL_PREFIX="$ICEORYX_INSTALL_PREFIX" \
+          -DBUILD_TEST=$TEST_FLAG \
+          -DCOVERAGE=$COV_FLAG \
+          -DROUDI_ENVIRONMENT=$ROUDI_ENV_FLAG \
+          -DEXAMPLES=$EXAMPLE_FLAG \
+          -DTOML_CONFIG=$TOML_FLAG \
+          -DBUILD_DOC=$BUILD_DOC \
+          -DDDS_GATEWAY=$DDS_GATEWAY_FLAG \
+          -DBINDING_C=$BINDING_C_FLAG \
+          -DONE_TO_MANY_ONLY=$ONE_TO_MANY_ONLY_FLAG \
+          -DBUILD_SHARED_LIBS=$BUILD_SHARED \
+          -DSANITIZE=$SANITIZE_FLAG \
+          -DTEST_WITH_ADDITIONAL_USER=$TEST_ADD_USER "$TOOLCHAIN_FILE" \
+          -DCMAKE_CXX_FLAGS=$CMAKE_CXX_FLAGS \
+          "$WORKSPACE"/iceoryx_meta
 
+    cmake --build . --target install -- -j$NUM_JOBS
+    echo ">>>>>> Finished building iceoryx <<<<<<"
+
+    if [ "$PACKAGE" == "ON" ]; then
+        echo ">>>>>> Start building iceoryx package <<<<<<"
+        cpack
+        echo ">>>>>> Finished building iceoryx package <<<<<<"
+    fi
+
+    cd "$BUILD_DIR"
+    mkdir -p tools
+    cp "$WORKSPACE"/tools/run_tests.sh "$BUILD_DIR"/tools/run_tests.sh
+
+fi
 
 #====================================================================================================
 #==== Step : Out-of-tree build  =====================================================================
 #====================================================================================================
 
 if [ "$OUT_OF_TREE_FLAG" == "ON" ]; then
-    rm -rf $WORKSPACE/build_out_of_tree
-    if [ "$BINDING_C_FLAG" == "ON" ]; then
-        EXAMPLES="${EXAMPLES} icedelivery_in_c waitset_in_c iceperf"
-    fi
+    rm -rf "$WORKSPACE"/build_out_of_tree
+    cd "$WORKSPACE"
+
+    EXAMPLES=$(cd iceoryx_examples; find * -maxdepth 1 -type d)
+    # Exclude directories without CMake file from the out-of-tree build
+    EXAMPLES=${EXAMPLES/iceensemble/""}
+    EXAMPLES=${EXAMPLES/icecrystal/""}
+    EXAMPLES=${EXAMPLES/icedocker/""}
+    EXAMPLES=${EXAMPLES/icediscovery\/src/""}
+    EXAMPLES=${EXAMPLES/icediscovery\/include/""}
     echo ">>>>>> Start Out-of-tree build <<<<<<"
-    echo ${EXAMPLES}
-    cd $WORKSPACE && mkdir -p build_out_of_tree && cd build_out_of_tree
+    echo "${EXAMPLES}"
+    mkdir -p build_out_of_tree && cd build_out_of_tree
         for ex in ${EXAMPLES}  ; do
-            mkdir -p $ex && cd $ex
-            cmake -DCMAKE_INSTALL_PREFIX=$ICEORYX_INSTALL_PREFIX \
+            mkdir -p "$ex" && cd "$ex"
+            cmake -DCMAKE_INSTALL_PREFIX="$ICEORYX_INSTALL_PREFIX" \
                   -DTOML_CONFIG=$TOML_FLAG \
-                  $WORKSPACE/iceoryx_examples/$ex
-            cmake --build . --target install -- -j$NUM_JOBS
-            if [ $? -ne 0 ]; then
+                  -DBINDING_C=$BINDING_C_FLAG \
+                  "$WORKSPACE"/iceoryx_examples/"$ex"
+            if ! cmake --build . --target install -- -j$NUM_JOBS; then
                 echo "Out of tree build failed"
                 exit 1
             fi
@@ -321,34 +346,32 @@ if [ "$OUT_OF_TREE_FLAG" == "ON" ]; then
 fi
 
 if [ "$COV_FLAG" == "ON" ]; then
-    $WORKSPACE/tools/gcov/lcov_generate.sh $WORKSPACE initial $TEST_SCOPE #make an initial scan to cover also files with no coverage
+    #make an initial scan to cover also files with no coverage
+    "$WORKSPACE"/tools/scripts/lcov_generate.sh "$WORKSPACE" initial "$TEST_SCOPE"
 fi
 
 #====================================================================================================
 #==== Step : Run all Tests  =========================================================================
 #====================================================================================================
 # the absolute path of the directory assigned to the build
-cd $BUILD_DIR
-mkdir -p tools
-cp $WORKSPACE/tools/run_tests.sh $BUILD_DIR/tools/run_tests.sh
 
 if [ $RUN_TEST == true ]; then
     echo " [i] Running all tests"
-    $BUILD_DIR/tools/run_tests.sh $TEST_SCOPE
+    "$BUILD_DIR"/tools/run_tests.sh "$TEST_SCOPE"
 fi
 
 for COMPONENT in $COMPONENTS; do
 
     case "$1" in
-        "unit" | "all")
+        "unit")
             if [ ! -f testresults/"$COMPONENT"_ModuleTestResults.xml ]; then
-                echo "xml:"$COMPONENT"_ModuletestTestResults.xml not found!"
+                echo "xml:${COMPONENT}_ModuletestTestResults.xml not found!"
                 exit 1
             fi
             ;;
         "integration" | "all")
             if [ ! -f testresults/"$COMPONENT"_IntegrationTestResults.xml ]; then
-                echo "xml:"$COMPONENT"_IntegrationTestResults.xml not found!"
+                echo "xml:${COMPONENT}_IntegrationTestResults.xml not found!"
                 exit 1
             fi
             ;;
@@ -361,8 +384,9 @@ done
 
 if [ "$COV_FLAG" == "ON" ]; then
     echo ">>>>>> Generate Gcov Report <<<<<<"
-    cd $WORKSPACE
-    $WORKSPACE/tools/gcov/lcov_generate.sh $WORKSPACE scan $TEST_SCOPE #scan all files after test execution
+    cd "$WORKSPACE"
+    #scan all files after test execution
+    "$WORKSPACE"/tools/scripts/lcov_generate.sh "$WORKSPACE" scan "$TEST_SCOPE"
     echo ">>>>>> Report Generation complete <<<<<<"
 fi
 
@@ -373,7 +397,7 @@ fi
 
 if [ "$BUILD_DOC" == "ON" ]; then
     echo ">>>>>> Doxygen PDF Generation <<<<<<"
-    cd $BUILD_DIR
+    cd "$BUILD_DIR"
 
     for cmp in $COMPONENTS; do
         make doxygen_"$cmp"

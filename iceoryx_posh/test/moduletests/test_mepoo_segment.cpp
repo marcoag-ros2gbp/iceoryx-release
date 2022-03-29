@@ -1,5 +1,5 @@
 // Copyright (c) 2019 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,39 +15,28 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "iceoryx_hoofs/cxx/expected.hpp"
+#include "iceoryx_hoofs/internal/posix_wrapper/shared_memory_object.hpp"
+#include "iceoryx_hoofs/internal/posix_wrapper/shared_memory_object/allocator.hpp"
+#include "iceoryx_hoofs/platform/fcntl.hpp"
+#include "iceoryx_hoofs/platform/stat.hpp"
+#include "iceoryx_hoofs/platform/types.hpp"
+#include "iceoryx_hoofs/posix_wrapper/posix_access_rights.hpp"
+#include "iceoryx_hoofs/testing/test_definitions.hpp"
 #include "iceoryx_posh/internal/mepoo/memory_manager.hpp"
 #include "iceoryx_posh/internal/mepoo/mepoo_segment.hpp"
-#include "iceoryx_utils/cxx/expected.hpp"
-#include "iceoryx_utils/internal/posix_wrapper/shared_memory_object.hpp"
-#include "iceoryx_utils/internal/posix_wrapper/shared_memory_object/allocator.hpp"
-#include "iceoryx_utils/platform/fcntl.hpp"
-#include "iceoryx_utils/platform/stat.hpp"
-#include "iceoryx_utils/platform/types.hpp"
-#include "iceoryx_utils/testing/test_definitions.hpp"
 #include "test.hpp"
 
 
 #include <functional>
 #include <memory>
 
+namespace
+{
 using namespace ::testing;
 using namespace iox::mepoo;
 using namespace iox::posix;
 
-namespace iox
-{
-namespace cxx
-{
-template <>
-struct ErrorTypeAdapter<int>
-{
-    static int getInvalidState()
-    {
-        return -1;
-    }
-};
-} // namespace cxx
-} // namespace iox
 class MePooSegment_test : public Test
 {
   public:
@@ -56,21 +45,21 @@ class MePooSegment_test : public Test
         using createFct = std::function<void(const SharedMemory::Name_t,
                                              const uint64_t,
                                              const iox::posix::AccessMode,
-                                             const iox::posix::OwnerShip,
+                                             const iox::posix::OpenMode,
                                              const void*,
-                                             const mode_t)>;
+                                             const iox::cxx::perms)>;
         SharedMemoryObject_MOCK(const SharedMemory::Name_t& name,
                                 const uint64_t memorySizeInBytes,
                                 const AccessMode accessMode,
-                                const OwnerShip ownerShip,
+                                const OpenMode openMode,
                                 const void* baseAddressHint,
-                                const mode_t permissions)
+                                const iox::cxx::perms permissions)
             : m_memorySizeInBytes(memorySizeInBytes)
             , m_baseAddressHint(const_cast<void*>(baseAddressHint))
         {
             if (createVerificator)
             {
-                createVerificator(name, memorySizeInBytes, accessMode, ownerShip, baseAddressHint, permissions);
+                createVerificator(name, memorySizeInBytes, accessMode, openMode, baseAddressHint, permissions);
             }
             filehandle = creat("/tmp/roudi_segment_test", S_IRWXU);
             m_isInitialized = true;
@@ -135,46 +124,49 @@ class MePooSegment_test : public Test
 
     MePooConfig mepooConfig = setupMepooConfig();
     MePooSegment<SharedMemoryObject_MOCK, MemoryManager> sut{
-        mepooConfig, m_managementAllocator, {"iox_roudi_test1"}, {"iox_roudi_test2"}};
+        mepooConfig, m_managementAllocator, PosixGroup{"iox_roudi_test1"}, PosixGroup{"iox_roudi_test2"}};
 };
 MePooSegment_test::SharedMemoryObject_MOCK::createFct MePooSegment_test::SharedMemoryObject_MOCK::createVerificator;
 
 TEST_F(MePooSegment_test, DISABLED_sharedMemoryFileHandleRightsAfterConstructor)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "4719f767-3413-46cd-8d1e-92a3ca92760e");
     /// @todo
 }
 
 TEST_F(MePooSegment_test, ADD_TEST_WITH_ADDITIONAL_USER(SharedMemoryCreationParameter))
 {
+    ::testing::Test::RecordProperty("TEST_ID", "0fcfefd4-3a84-43a5-9805-057a60239184");
     MePooSegment_test::SharedMemoryObject_MOCK::createVerificator = [](const SharedMemory::Name_t f_name,
                                                                        const uint64_t,
                                                                        const iox::posix::AccessMode f_accessMode,
-                                                                       const iox::posix::OwnerShip f_ownerShip,
+                                                                       const iox::posix::OpenMode openMode,
                                                                        const void*,
-                                                                       const mode_t) {
-        EXPECT_THAT(std::string(f_name), Eq(std::string("/iox_roudi_test2")));
+                                                                       const iox::cxx::perms) {
+        EXPECT_THAT(std::string(f_name), Eq(std::string("iox_roudi_test2")));
         EXPECT_THAT(f_accessMode, Eq(iox::posix::AccessMode::READ_WRITE));
-        EXPECT_THAT(f_ownerShip, Eq(iox::posix::OwnerShip::MINE));
+        EXPECT_THAT(openMode, Eq(iox::posix::OpenMode::PURGE_AND_CREATE));
     };
     MePooSegment<SharedMemoryObject_MOCK, MemoryManager> sut2{
-        mepooConfig, m_managementAllocator, {"iox_roudi_test1"}, {"iox_roudi_test2"}};
+        mepooConfig, m_managementAllocator, PosixGroup{"iox_roudi_test1"}, PosixGroup{"iox_roudi_test2"}};
     MePooSegment_test::SharedMemoryObject_MOCK::createVerificator =
         MePooSegment_test::SharedMemoryObject_MOCK::createFct();
 }
 
 TEST_F(MePooSegment_test, ADD_TEST_WITH_ADDITIONAL_USER(GetSharedMemoryObject))
 {
+    ::testing::Test::RecordProperty("TEST_ID", "e1c12dd0-fd7d-4be3-918b-08d16a68c8e0");
     uint64_t memorySizeInBytes{0};
     MePooSegment_test::SharedMemoryObject_MOCK::createVerificator = [&](const SharedMemory::Name_t,
                                                                         const uint64_t f_memorySizeInBytes,
                                                                         const iox::posix::AccessMode,
-                                                                        const iox::posix::OwnerShip,
+                                                                        const iox::posix::OpenMode,
                                                                         const void*,
-                                                                        const mode_t) {
+                                                                        const iox::cxx::perms) {
         memorySizeInBytes = f_memorySizeInBytes;
     };
     MePooSegment<SharedMemoryObject_MOCK, MemoryManager> sut2{
-        mepooConfig, m_managementAllocator, {"iox_roudi_test1"}, {"iox_roudi_test2"}};
+        mepooConfig, m_managementAllocator, PosixGroup{"iox_roudi_test1"}, PosixGroup{"iox_roudi_test2"}};
     MePooSegment_test::SharedMemoryObject_MOCK::createVerificator =
         MePooSegment_test::SharedMemoryObject_MOCK::createFct();
 
@@ -183,16 +175,19 @@ TEST_F(MePooSegment_test, ADD_TEST_WITH_ADDITIONAL_USER(GetSharedMemoryObject))
 
 TEST_F(MePooSegment_test, ADD_TEST_WITH_ADDITIONAL_USER(GetReaderGroup))
 {
+    ::testing::Test::RecordProperty("TEST_ID", "ad3fd360-3765-45ae-8285-fe4ae60c91ae");
     EXPECT_THAT(sut.getReaderGroup(), Eq(iox::posix::PosixGroup("iox_roudi_test1")));
 }
 
 TEST_F(MePooSegment_test, ADD_TEST_WITH_ADDITIONAL_USER(GetWriterGroup))
 {
+    ::testing::Test::RecordProperty("TEST_ID", "3aa34489-bd46-4e77-89d6-20e82211e1a4");
     EXPECT_THAT(sut.getWriterGroup(), Eq(iox::posix::PosixGroup("iox_roudi_test2")));
 }
 
 TEST_F(MePooSegment_test, ADD_TEST_WITH_ADDITIONAL_USER(GetMemoryManager))
 {
+    ::testing::Test::RecordProperty("TEST_ID", "4bc4af78-4beb-42eb-aee4-0f7cffb66411");
     ASSERT_THAT(sut.getMemoryManager().getNumberOfMemPools(), Eq(1U));
     auto config = sut.getMemoryManager().getMemPoolInfo(0);
     ASSERT_THAT(config.m_numChunks, Eq(100U));
@@ -202,6 +197,10 @@ TEST_F(MePooSegment_test, ADD_TEST_WITH_ADDITIONAL_USER(GetMemoryManager))
     ASSERT_FALSE(chunkSettingsResult.has_error());
     auto& chunkSettings = chunkSettingsResult.value();
 
-    auto chunk = sut.getMemoryManager().getChunk(chunkSettings);
-    EXPECT_THAT(chunk.getChunkHeader()->userPayloadSize(), Eq(USER_PAYLOAD_SIZE));
+    sut.getMemoryManager()
+        .getChunk(chunkSettings)
+        .and_then([&](auto& chunk) { EXPECT_THAT(chunk.getChunkHeader()->userPayloadSize(), Eq(USER_PAYLOAD_SIZE)); })
+        .or_else([](auto& error) { FAIL() << "getChunk failed with: " << error; });
 }
+
+} // namespace

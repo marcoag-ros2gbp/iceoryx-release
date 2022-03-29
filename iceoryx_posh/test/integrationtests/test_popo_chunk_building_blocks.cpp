@@ -15,13 +15,13 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "iceoryx_hoofs/cxx/generic_raii.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_distributor.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_receiver.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_sender.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/locking_policy.hpp"
 #include "iceoryx_posh/internal/popo/ports/base_port.hpp"
 #include "iceoryx_posh/mepoo/mepoo_config.hpp"
-#include "iceoryx_utils/cxx/generic_raii.hpp"
 
 #include "test.hpp"
 
@@ -29,12 +29,13 @@
 #include <stdlib.h>
 #include <thread>
 
+namespace
+{
 using namespace ::testing;
 using namespace iox::popo;
 using namespace iox::cxx;
 using namespace iox::mepoo;
 using namespace iox::posix;
-using ::testing::Return;
 
 struct DummySample
 {
@@ -95,7 +96,7 @@ class ChunkBuildingBlocks_IntegrationTest : public Test
         for (size_t i = 0; i < ITERATIONS; i++)
         {
             m_chunkSender
-                .tryAllocate(iox::UniquePortId(),
+                .tryAllocate(UniquePortId(),
                              sizeof(DummySample),
                              iox::CHUNK_DEFAULT_USER_PAYLOAD_ALIGNMENT,
                              iox::CHUNK_NO_USER_HEADER_SIZE,
@@ -197,8 +198,6 @@ class ChunkBuildingBlocks_IntegrationTest : public Test
         }
     }
 
-    iox::cxx::GenericRAII m_uniqueRouDiId{[] { iox::popo::internal::setUniqueRouDiId(0); },
-                                          [] { iox::popo::internal::unsetUniqueRouDiId(); }};
     uint64_t m_sendCounter{0};
     uint64_t m_receiveCounter{0};
     std::atomic<bool> m_publisherRun{true};
@@ -210,11 +209,11 @@ class ChunkBuildingBlocks_IntegrationTest : public Test
     MemoryManager m_memoryManager;
 
     // Objects used by publishing thread
-    ChunkSenderData_t m_chunkSenderData{&m_memoryManager, SubscriberTooSlowPolicy::DISCARD_OLDEST_DATA};
+    ChunkSenderData_t m_chunkSenderData{&m_memoryManager, ConsumerTooSlowPolicy::DISCARD_OLDEST_DATA};
     ChunkSender<ChunkSenderData_t> m_chunkSender{&m_chunkSenderData};
 
     // Objects used by forwarding thread
-    ChunkDistributorData_t m_chunkDistributorData{SubscriberTooSlowPolicy::DISCARD_OLDEST_DATA};
+    ChunkDistributorData_t m_chunkDistributorData{ConsumerTooSlowPolicy::DISCARD_OLDEST_DATA};
     ChunkDistributor_t m_chunkDistributor{&m_chunkDistributorData};
     ChunkQueueData_t m_chunkQueueData{
         QueueFullPolicy::DISCARD_OLDEST_DATA,
@@ -229,6 +228,7 @@ class ChunkBuildingBlocks_IntegrationTest : public Test
 
 TEST_F(ChunkBuildingBlocks_IntegrationTest, TwoHopsThreeThreadsNoSoFi)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "710aaa1d-2df4-491d-b32e-cce3744b22c3");
     std::thread subscribingThread(&ChunkBuildingBlocks_IntegrationTest::subscribe, this);
     std::thread forwardingThread(&ChunkBuildingBlocks_IntegrationTest::forward, this);
     std::thread publishingThread(&ChunkBuildingBlocks_IntegrationTest::publish, this);
@@ -252,3 +252,5 @@ TEST_F(ChunkBuildingBlocks_IntegrationTest, TwoHopsThreeThreadsNoSoFi)
     ASSERT_FALSE(m_chunkReceiver.hasLostChunks());
     EXPECT_EQ(m_sendCounter, m_receiveCounter);
 }
+
+} // namespace

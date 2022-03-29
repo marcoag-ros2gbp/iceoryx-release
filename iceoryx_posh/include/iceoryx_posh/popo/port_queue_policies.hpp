@@ -23,18 +23,24 @@ namespace iox
 {
 namespace popo
 {
-/// @brief Used by publisher
-enum class SubscriberTooSlowPolicy : uint8_t
+/// @brief Used by producers how to adjust to slow consumer
+enum class ConsumerTooSlowPolicy : uint8_t
 {
-    WAIT_FOR_SUBSCRIBER,
+    /// Waits for the consumer it it's queue is full
+    WAIT_FOR_CONSUMER,
+    /// Discards the oldest data and pushes the newest one into the queue
     DISCARD_OLDEST_DATA
 };
-/// @brief Used by subscriber
+
+/// @brief Used by consumers to request a specific behavior from the producer
 enum class QueueFullPolicy : uint8_t
 {
-    BLOCK_PUBLISHER,
+    /// Requests the producer to block when the consumer queue is full
+    BLOCK_PRODUCER,
+    /// Request to discard the oldest data and push the newest one into the queue
     DISCARD_OLDEST_DATA
 };
+
 } // namespace popo
 } // namespace iox
 #endif // IOX_POSH_POPO_PORT_QUEUE_POLICIES_HPP

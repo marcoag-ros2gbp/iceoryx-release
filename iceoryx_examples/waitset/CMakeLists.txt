@@ -13,13 +13,13 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(example_waitset)
 
 include(GNUInstallDirs)
 
 find_package(iceoryx_posh CONFIG REQUIRED)
-find_package(iceoryx_utils CONFIG REQUIRED)
+find_package(iceoryx_hoofs CONFIG REQUIRED)
 
 get_target_property(ICEORYX_CXX_STANDARD iceoryx_posh::iceoryx_posh CXX_STANDARD)
 include(IceoryxPlatform)
@@ -48,11 +48,11 @@ target_link_libraries(iox-cpp-waitset-individual
 )
 target_compile_options(iox-cpp-waitset-individual PRIVATE ${ICEORYX_WARNINGS} ${ICEORYX_SANITIZER_FLAGS})
 
-add_executable(iox-cpp-waitset-sync ./ice_waitset_sync.cpp)
-target_link_libraries(iox-cpp-waitset-sync
+add_executable(iox-cpp-waitset-timer-driven-execution ./ice_waitset_timer_driven_execution.cpp)
+target_link_libraries(iox-cpp-waitset-timer-driven-execution
     iceoryx_posh::iceoryx_posh
 )
-target_compile_options(iox-cpp-waitset-sync PRIVATE ${ICEORYX_WARNINGS} ${ICEORYX_SANITIZER_FLAGS})
+target_compile_options(iox-cpp-waitset-timer-driven-execution PRIVATE ${ICEORYX_WARNINGS} ${ICEORYX_SANITIZER_FLAGS})
 
 add_executable(iox-cpp-waitset-trigger ./ice_waitset_trigger.cpp)
 target_link_libraries(iox-cpp-waitset-trigger
@@ -69,11 +69,11 @@ target_compile_options(iox-cpp-waitset-basic PRIVATE ${ICEORYX_WARNINGS} ${ICEOR
 set_target_properties(
     iox-cpp-waitset-basic
     iox-cpp-waitset-trigger
-    iox-cpp-waitset-sync
+    iox-cpp-waitset-timer-driven-execution
     iox-cpp-waitset-individual
     iox-cpp-waitset-grouping
     iox-cpp-waitset-gateway
-    iox-cpp-waitset-publisher
+    iox-cpp-waitset-publisher 
   PROPERTIES
     CXX_STANDARD_REQUIRED ON
     CXX_STANDARD ${ICEORYX_CXX_STANDARD}
@@ -81,6 +81,6 @@ set_target_properties(
 )
 
 install(
-    TARGETS iox-cpp-waitset-publisher iox-cpp-waitset-gateway iox-cpp-waitset-grouping iox-cpp-waitset-individual iox-cpp-waitset-sync iox-cpp-waitset-trigger
+    TARGETS iox-cpp-waitset-publisher iox-cpp-waitset-gateway iox-cpp-waitset-grouping iox-cpp-waitset-individual iox-cpp-waitset-timer-driven-execution iox-cpp-waitset-trigger
     RUNTIME DESTINATION bin
 )

@@ -1,5 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2020 - 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2020 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -44,6 +44,11 @@ typedef struct
 
     /// @brief describes whether a publisher blocks when subscriber queue is full
     ENUM iox_QueueFullPolicy queueFullPolicy;
+
+    /// @brief Indicates whether we require the publisher to have historyCapacity > 0.
+    ///        If true and the condition is not met (i.e. historyCapacity = 0), the subscriber will
+    ///        not be connected to the publisher.
+    bool requirePublisherHistorySupport;
 
     /// @brief this value will be set exclusively by iox_sub_options_init and is not supposed to be modified otherwise
     uint64_t initCheck;
@@ -101,7 +106,7 @@ ENUM iox_SubscribeState iox_sub_get_subscription_state(iox_sub_t const self);
 ///         an enum which describes the error
 ENUM iox_ChunkReceiveResult iox_sub_take_chunk(iox_sub_t const self, const void** const userPayload);
 
-/// @brief release a previously acquired chunk (via iox_sub_getChunk)
+/// @brief release a previously acquired chunk (via iox_sub_take_chunk)
 /// @param[in] self handle to the subscriber
 /// @param[in] userPayload pointer to the user-payload of chunk which should be released
 void iox_sub_release_chunk(iox_sub_t const self, const void* const userPayload);

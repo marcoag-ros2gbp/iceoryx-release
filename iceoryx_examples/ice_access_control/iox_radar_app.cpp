@@ -16,34 +16,23 @@
 
 #include "topic_data.hpp"
 
+#include "iceoryx_hoofs/posix_wrapper/signal_watcher.hpp"
 #include "iceoryx_posh/popo/publisher.hpp"
 #include "iceoryx_posh/runtime/posh_runtime.hpp"
-#include "iceoryx_utils/posix_wrapper/signal_handler.hpp"
 
 #include <iostream>
 
-bool killswitch = false;
 constexpr char APP_NAME[] = "iox-cpp-radar";
-
-static void sigHandler(int f_sig IOX_MAYBE_UNUSED)
-{
-    // caught SIGINT or SIGTERM, now exit gracefully
-    killswitch = true;
-}
 
 int main()
 {
-    // Register sigHandler
-    auto signalIntGuard = iox::posix::registerSignalHandler(iox::posix::Signal::INT, sigHandler);
-    auto signalTermGuard = iox::posix::registerSignalHandler(iox::posix::Signal::TERM, sigHandler);
-
     // Let the user define the runtime name via the first command line parameter
     iox::runtime::PoshRuntime::initRuntime(APP_NAME);
 
     iox::popo::Publisher<RadarObject> publisher({"Radar", "FrontLeft", "Object"});
 
     double ct = 0.0;
-    while (!killswitch)
+    while (!iox::posix::hasTerminationRequested())
     {
         ++ct;
 
@@ -62,7 +51,7 @@ int main()
         {
             auto error = loanResult.get_error();
             // Do something with error
-            std::cerr << "Unable to loan sample, error code: " << static_cast<uint64_t>(error) << std::endl;
+            std::cerr << "Unable to loan sample, error: " << error << std::endl;
         }
 
         std::cout << APP_NAME << " sent value: " << ct << std::endl;

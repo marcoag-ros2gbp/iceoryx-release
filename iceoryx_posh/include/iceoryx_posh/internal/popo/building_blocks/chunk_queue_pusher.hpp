@@ -17,11 +17,11 @@
 #ifndef IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_QUEUE_PUSHER_HPP
 #define IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_QUEUE_PUSHER_HPP
 
+#include "iceoryx_hoofs/cxx/expected.hpp"
+#include "iceoryx_hoofs/cxx/helplets.hpp"
 #include "iceoryx_posh/internal/mepoo/shared_chunk.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_queue_data.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/condition_notifier.hpp"
-#include "iceoryx_utils/cxx/expected.hpp"
-#include "iceoryx_utils/cxx/helplets.hpp"
 
 namespace iox
 {
@@ -41,9 +41,9 @@ class ChunkQueuePusher
 
     ChunkQueuePusher(const ChunkQueuePusher& other) = delete;
     ChunkQueuePusher& operator=(const ChunkQueuePusher&) = delete;
-    ChunkQueuePusher(ChunkQueuePusher&& rhs) = default;
-    ChunkQueuePusher& operator=(ChunkQueuePusher&& rhs) = default;
-    ~ChunkQueuePusher() = default;
+    ChunkQueuePusher(ChunkQueuePusher&& rhs) noexcept = default;
+    ChunkQueuePusher& operator=(ChunkQueuePusher&& rhs) noexcept = default;
+    ~ChunkQueuePusher() noexcept = default;
 
     /// @brief push a new chunk to the chunk queue
     /// @param[in] shared chunk object

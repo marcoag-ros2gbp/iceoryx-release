@@ -20,13 +20,10 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+namespace
+{
 using namespace ::testing;
-using ::testing::Return;
 
-namespace example
-{
-namespace test
-{
 /// @req IOX_SWRS_112, IOX_SWRS_200
 /// @brief Test goal: "This test suite verifies that the BaseClass function is verified"
 /// @pre describe what needs to be done in setup()
@@ -41,15 +38,16 @@ class ExampleBaseClass_test : public Test
 /// @note name of the Testcase shall describe the test case in detail to avoid additional comments
 TEST_F(ExampleBaseClass_test, FirstUnitTestCase)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "2c612537-21ec-4dde-95a9-c91010ec8bdd");
     EXPECT_THAT(sut.simplerMethod(), Eq(99U));
 }
 
 /// @note name of the Testcase shall describe the test case in detail to avoid additional comments
 TEST_F(ExampleBaseClass_test, GetMemberVariableFromCtor)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "839725bf-1ae8-4a81-b574-15114a657a7e");
     example::ExampleBaseClass<uint32_t> sut2(100);
     EXPECT_THAT(sut2.getMemberVariable(), Eq(99U));
 }
 
-} // namespace test
-} // namespace example
+} // namespace

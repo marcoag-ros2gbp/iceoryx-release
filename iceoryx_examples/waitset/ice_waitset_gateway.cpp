@@ -14,16 +14,17 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "iceoryx_hoofs/posix_wrapper/signal_handler.hpp"
 #include "iceoryx_posh/popo/untyped_subscriber.hpp"
 #include "iceoryx_posh/popo/user_trigger.hpp"
 #include "iceoryx_posh/popo/wait_set.hpp"
 #include "iceoryx_posh/runtime/posh_runtime.hpp"
-#include "iceoryx_utils/posix_wrapper/signal_handler.hpp"
 #include "topic_data.hpp"
 
 #include <chrono>
 #include <iostream>
 
+std::atomic_bool keepRunning{true};
 iox::popo::UserTrigger shutdownTrigger;
 
 static void sigHandler(int f_sig IOX_MAYBE_UNUSED)
@@ -31,28 +32,34 @@ static void sigHandler(int f_sig IOX_MAYBE_UNUSED)
     shutdownTrigger.trigger();
 }
 
+//! [shutdown callback]
 void shutdownCallback(iox::popo::UserTrigger*)
 {
-    std::cout << "CTRL+c pressed - exiting now" << std::endl;
+    std::cout << "CTRL+C pressed - exiting now" << std::endl;
 }
+//! [shutdown callback]
 
 // The callback of the event. Every callback must have an argument which is
 // a pointer to the origin of the Trigger. In our case the event origin is
 // the untyped subscriber.
+//! [subscriber callback]
 void subscriberCallback(iox::popo::UntypedSubscriber* const subscriber, uint64_t* const sumOfAllSamples)
 {
     while (subscriber->hasData())
     {
         subscriber->take().and_then([&](auto& userPayload) {
             auto chunkHeader = iox::mepoo::ChunkHeader::fromUserPayload(userPayload);
+            auto flags = std::cout.flags();
             std::cout << "subscriber: " << std::hex << subscriber << " length: " << std::dec
                       << chunkHeader->userPayloadSize() << " ptr: " << std::hex << chunkHeader->userPayload()
-                      << std::endl;
+                      << std::dec << std::endl;
+            std::cout.setf(flags);
         });
         // no nullptr check required since it is guaranteed != nullptr
         ++(*sumOfAllSamples);
     }
 }
+//! [subscriber callback]
 
 int main()
 {
@@ -65,6 +72,7 @@ int main()
 
     iox::runtime::PoshRuntime::initRuntime("iox-cpp-waitset-gateway");
 
+    //! [create waitset]
     iox::popo::WaitSet<NUMBER_OF_SUBSCRIBERS + ONE_SHUTDOWN_TRIGGER> waitset;
 
     // attach shutdownTrigger to handle CTRL+C
@@ -72,10 +80,12 @@ int main()
         std::cerr << "failed to attach shutdown trigger" << std::endl;
         std::exit(EXIT_FAILURE);
     });
+    //! [create waitset]
 
+    //! [configure]
     uint64_t sumOfAllSamples = 0U;
 
-    // create subscriber and subscribe them to our service
+    // create subscribers and subscribe them to our service
     iox::cxx::vector<iox::popo::UntypedSubscriber, NUMBER_OF_SUBSCRIBERS> subscriberVector;
     for (auto i = 0U; i < NUMBER_OF_SUBSCRIBERS; ++i)
     {
@@ -94,9 +104,10 @@ int main()
                 std::exit(EXIT_FAILURE);
             });
     }
+    //! [configure]
 
-    // event loop
-    while (true)
+    //! [event loop]
+    while (keepRunning)
     {
         auto notificationVector = waitset.wait();
 
@@ -104,8 +115,8 @@ int main()
         {
             if (notification->doesOriginateFrom(&shutdownTrigger))
             {
-                // CTRL+c was pressed -> exit
-                return (EXIT_SUCCESS);
+                (*notification)();
+                keepRunning = false;
             }
             else
             {
@@ -114,8 +125,11 @@ int main()
             }
         }
 
+        auto flags = std::cout.flags();
         std::cout << "sum of all samples: " << std::dec << sumOfAllSamples << std::endl;
+        std::cout.setf(flags);
     }
+    //! [event loop]
 
     return (EXIT_SUCCESS);
 }

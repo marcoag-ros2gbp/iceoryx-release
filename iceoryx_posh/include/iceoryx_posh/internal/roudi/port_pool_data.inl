@@ -16,12 +16,14 @@
 #ifndef IOX_POSH_ROUDI_PORT_POOL_DATA_INL
 #define IOX_POSH_ROUDI_PORT_POOL_DATA_INL
 
+#include "iceoryx_posh/internal/roudi/port_pool_data.hpp"
+
 namespace iox
 {
 namespace roudi
 {
 template <typename T, uint64_t Capacity>
-bool FixedPositionContainer<T, Capacity>::hasFreeSpace()
+bool FixedPositionContainer<T, Capacity>::hasFreeSpace() noexcept
 {
     if (m_data.capacity() > m_data.size())
     {
@@ -41,7 +43,7 @@ bool FixedPositionContainer<T, Capacity>::hasFreeSpace()
 
 template <typename T, uint64_t Capacity>
 template <typename... Targs>
-T* FixedPositionContainer<T, Capacity>::insert(Targs&&... args)
+T* FixedPositionContainer<T, Capacity>::insert(Targs&&... args) noexcept
 {
     for (auto& e : m_data)
     {
@@ -58,7 +60,7 @@ T* FixedPositionContainer<T, Capacity>::insert(Targs&&... args)
 }
 
 template <typename T, uint64_t Capacity>
-void FixedPositionContainer<T, Capacity>::erase(T* const element)
+void FixedPositionContainer<T, Capacity>::erase(const T* const element) noexcept
 {
     for (auto& e : m_data)
     {
@@ -71,7 +73,7 @@ void FixedPositionContainer<T, Capacity>::erase(T* const element)
 }
 
 template <typename T, uint64_t Capacity>
-cxx::vector<T*, Capacity> FixedPositionContainer<T, Capacity>::content()
+cxx::vector<T*, Capacity> FixedPositionContainer<T, Capacity>::content() noexcept
 {
     cxx::vector<T*, Capacity> returnValue;
     for (auto& e : m_data)

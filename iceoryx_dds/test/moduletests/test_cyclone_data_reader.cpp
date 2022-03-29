@@ -15,20 +15,19 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "iceoryx_dds/Mempool.hpp"
 #include "iceoryx_dds/dds/cyclone_data_reader.hpp"
 #include "iceoryx_posh/testing/mocks/chunk_mock.hpp"
 #include "test.hpp"
 
-#include <Mempool_DCPS.hpp>
 #include <dds/dds.hpp>
 
+namespace
+{
 using namespace ::testing;
 using ::testing::_;
+using namespace iox::dds;
 
-namespace iox
-{
-namespace dds
-{
 // ======================================== Helpers ======================================== //
 using TestDataReader = CycloneDataReader;
 
@@ -54,6 +53,7 @@ class CycloneDataReaderTest : public Test
 // ======================================== Tests ======================================== //
 TEST_F(CycloneDataReaderTest, DoesNotAttemptToReadWhenDisconnected)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "46fc99d7-9f7b-4b77-94c7-06778e3461f7");
     // ===== Setup
     ChunkMock<DummyPayload> chunkMock;
     iox::dds::IoxChunkDatagramHeader datagramHeader;
@@ -73,6 +73,7 @@ TEST_F(CycloneDataReaderTest, DoesNotAttemptToReadWhenDisconnected)
 
 TEST_F(CycloneDataReaderTest, ReturnsErrorWhenAttemptingToReadIntoANullBuffer)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "ddd6e55a-b4ca-4e10-838e-5a532ccadb50");
     // ===== Setup
     ChunkMock<DummyPayload, DummyUserHeader> chunkMock;
     iox::dds::IoxChunkDatagramHeader datagramHeader;
@@ -97,5 +98,4 @@ TEST_F(CycloneDataReaderTest, ReturnsErrorWhenAttemptingToReadIntoANullBuffer)
     EXPECT_EQ(iox::dds::DataReaderError::INVALID_BUFFER_PARAMETER_FOR_USER_PAYLOAD, takeNextResult2.get_error());
 }
 
-} // namespace dds
-} // namespace iox
+} // namespace

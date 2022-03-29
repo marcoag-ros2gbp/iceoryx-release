@@ -5,101 +5,135 @@ name: Build & Test
 # Triggers the workflow on push or pull request events but only for the master branch
 on:
   push:
-    branches: [ master, release* ]
+    branches: [ master ]
   pull_request:
     branches: [ master, release* ]
 
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
-  # This job builds & runs iceoryx tests in ubuntu-18.04
-  iceoryx-ubuntu:
-     runs-on: ubuntu-18.04
-
-     # Steps represent a sequence of tasks that will be executed as part of the job
-     steps:
-       - name: compiler versions
-         run: |
-          echo $(gcc --version)
-          echo $(clang --version)
-
-       - name: Install iceoryx dependencies
-         # Softwares installed in ubuntu-18.04 instance
-         # https://github.com/actions/virtual-environments/blob/master/images/linux/Ubuntu1804-README.md
-         run: |
-          sudo apt-get update
-          sudo apt-get install -y libacl1-dev libncurses5-dev
-
-       - name: Checkout
-         uses: actions/checkout@v2
-
-       - name: Build sources
-         run: |
-            sudo $GITHUB_WORKSPACE/tools/add_test_users.sh
-            $GITHUB_WORKSPACE/tools/iceoryx_build_test.sh build-strict build-all out-of-tree build-shared test-add-user
-
-       - name: Build debian package
-         run: |
-            $GITHUB_WORKSPACE/tools/iceoryx_build_test.sh package
-
-       - name: Run all tests
-         run: |
-           cd $GITHUB_WORKSPACE/build
-           tools/run_tests.sh all
-
-       - name: Build RouDi examples without TOML support
-         run: |
-           $GITHUB_WORKSPACE/tools/iceoryx_build_test.sh out-of-tree examples toml-config-off clean
-
- # This job builds & runs iceoryx tests in macos-10.14
-  iceoryx-macos:
-    runs-on: macos-10.14
-    # Softwares installed in macos-latest instance
-    # https://github.com/actions/virtual-environments/blob/master/images/macos/macos-10.14-Readme.md
-
+  pre-flight-check:
+    runs-on: ubuntu-20.04
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+      - run: ./tools/scripts/clang_format.sh check
 
-      - name: compiler version
-        run: |
-          echo $(clang --version)
+  build-test-ubuntu:
+    runs-on: ubuntu-20.04
+    needs: pre-flight-check
+    steps:
+      - uses: actions/checkout@v2
+      - uses: egor-tensin/setup-gcc@v1
+        with:
+          version: 9
+          platform: x64
+      - uses: jwlawson/actions-setup-cmake@v1.12
+        with:
+          cmake-version: '3.16.3' # version used in Ubuntu 20.04 LTS
+      - run: ./tools/ci/build-test-ubuntu.sh
 
-      - name: Build and install dependencies
-      # tinfo library which is required by iceoryx_introspection isn't available in mac
-        run: |
-          cd $GITHUB_WORKSPACE
-          mkdir -p build
-          cd build
-          git clone https://github.com/mirror/ncurses.git
-          cd ncurses
-          git checkout v6.2
-          ./configure  --prefix=$GITHUB_WORKSPACE/build/install/prefix/ --exec-prefix=$GITHUB_WORKSPACE/build/install/prefix/ --with-termlib
-          make
-          make install
+  # uses macos to run freebsd in a virtualbox
+  build-test-unix-with-freebsd:
+    # prevent stuck jobs consuming macos runners for 6 hours
+    timeout-minutes: 60
+    needs: pre-flight-check
+    runs-on: macos-10.15
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: 'master'
+    - name: Unix (FreeBSD) test
+      id: Test
+      uses: vmactions/freebsd-vm@v0.1.6
+      with:
+        usesh: true
+        mem: 2048
+        prepare: pkg install -y cmake git ncurses bash wget bison
+        run: ./tools/ci/build-test-freebsd.sh
 
-      - name: Build sources
-        run: |
-          $GITHUB_WORKSPACE/tools/iceoryx_build_test.sh build-strict build-all out-of-tree
-
-      - name: Run tests, excluding timing_tests
-        run: |
-          cd $GITHUB_WORKSPACE/build
-          make all_tests
-
-      - name: Build RouDi examples without TOML support
-        run: |
-          $GITHUB_WORKSPACE/tools/iceoryx_build_test.sh out-of-tree examples toml-config-off clean
-
- # This job builds & runs iceoryx tests in Windows 2019
-  iceoryx-windows:
+  build-test-windows:
     runs-on: windows-2019
-    # Softwares installed in windows instance
-    # https://github.com/actions/virtual-environments/blob/master/images/win/Windows2019-Readme.md
-
+    needs: pre-flight-check
     steps:
-      - name : Checkout
-        uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+      - run: ./tools/ci/build-test-windows.ps1
+        shell: powershell
 
-      - name: Build sources
-        run: |
-          cmake -Bbuild -Hiceoryx_meta -DBUILD_TEST=ON -DINTROSPECTION=OFF -DBINDING_C=ON -DEXAMPLES=ON && cmake --build build
+  run-integration-test:
+    runs-on: ubuntu-20.04
+    needs: pre-flight-check
+    steps:
+      - name: Setup ROS
+        uses: ros-tooling/setup-ros@0.2.1
+        with:
+          required-ros-distributions: foxy
+      - uses: actions/checkout@v2
+      - run: ./tools/ci/run-integration-test.sh
+
+  build-test-ubuntu-with-sanitizers-gcc-latest:
+    runs-on: ubuntu-20.04
+    needs: pre-flight-check
+    steps:
+      - uses: egor-tensin/setup-gcc@v1.2
+        with:
+          version: 11
+          platform: x64
+      - uses: actions/checkout@v2
+      - run: ./tools/ci/build-test-ubuntu-with-sanitizers.sh gcc
+
+  build-test-ubuntu-with-sanitizers-clang-latest:
+    runs-on: ubuntu-20.04
+    needs: pre-flight-check
+    steps:
+      - uses: egor-tensin/setup-clang@v1
+        with:
+          version: 13
+          platform: x64
+      - uses: actions/checkout@v2
+      - run: ./tools/ci/build-test-ubuntu-with-sanitizers.sh clang
+
+  build-test-macos-with-sanitizers:
+    runs-on: macos-latest
+    # prevent stuck jobs consuming macos runners for 6 hours
+    timeout-minutes: 60
+    needs: pre-flight-check
+    steps:
+      - uses: actions/checkout@v2
+      - run: ./tools/ci/build-test-macos-with-sanitizers.sh
+
+  # gcc 5.4 is compiler used in QNX 7.0
+  build-test-ubuntu-with-gcc54:
+    runs-on: ubuntu-18.04
+    needs: pre-flight-check
+    steps:
+      - uses: actions/checkout@v2
+      - run: ./tools/ci/build-test-ubuntu-with-gcc54.sh
+
+  coverage-and-docs:
+    runs-on: ubuntu-20.04
+    needs: pre-flight-check
+    steps:
+      - uses: actions/checkout@v2
+      - run: ./tools/ci/coverage-and-docs.sh
+
+      - name: Archive generated doxygen
+        uses: actions/upload-artifact@v2
+        with:
+          name: iceoryx-pdf
+          path: |
+            ./build/doc/*.pdf
+          retention-days: 30
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          file: ./lcov_results/unittest/lcov/iceoryx_lcov_result_unit.info
+          name: iceoryx
+          flags: unittests
+          fail_ci_if_error: true
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v2
+        with:
+          file: ./lcov_results/unittest_timing/lcov/iceoryx_lcov_result_unit-timing.info
+          name: iceoryx
+          flags: unittests_timing
+          fail_ci_if_error: true

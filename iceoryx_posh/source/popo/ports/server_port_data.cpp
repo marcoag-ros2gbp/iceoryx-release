@@ -1,5 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,15 +21,26 @@ namespace iox
 {
 namespace popo
 {
+cxx::VariantQueueTypes getRequestQueueType(const QueueFullPolicy policy) noexcept
+{
+    return policy == QueueFullPolicy::DISCARD_OLDEST_DATA ? cxx::VariantQueueTypes::SoFi_MultiProducerSingleConsumer
+                                                          : cxx::VariantQueueTypes::FiFo_MultiProducerSingleConsumer;
+}
+
+constexpr uint64_t ServerPortData::HISTORY_REQUEST_OF_ZERO;
+
 ServerPortData::ServerPortData(const capro::ServiceDescription& serviceDescription,
                                const RuntimeName_t& runtimeName,
-                               const NodeName_t& nodeName,
+                               const ServerOptions& serverOptions,
                                mepoo::MemoryManager* const memoryManager,
                                const mepoo::MemoryInfo& memoryInfo) noexcept
-    : BasePortData(serviceDescription, runtimeName, nodeName)
-    , m_chunkSenderData(memoryManager, SERVER_SUBSCRIBER_POLICY, 0, memoryInfo)
-    , m_chunkReceiverData(cxx::VariantQueueTypes::FiFo_MultiProducerSingleConsumer, SERVER_PUBLISHER_POLICY)
+    : BasePortData(serviceDescription, runtimeName, serverOptions.nodeName)
+    , m_chunkSenderData(memoryManager, serverOptions.clientTooSlowPolicy, HISTORY_REQUEST_OF_ZERO, memoryInfo)
+    , m_chunkReceiverData(
+          getRequestQueueType(serverOptions.requestQueueFullPolicy), serverOptions.requestQueueFullPolicy, memoryInfo)
+    , m_offeringRequested(serverOptions.offerOnCreate)
 {
+    m_chunkReceiverData.m_queue.setCapacity(serverOptions.requestQueueCapacity);
 }
 
 } // namespace popo

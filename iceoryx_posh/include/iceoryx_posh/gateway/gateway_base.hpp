@@ -1,4 +1,5 @@
 // Copyright (c) 2019 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -48,8 +49,8 @@ class GatewayBase
 
     GatewayBase& operator=(const GatewayBase& other) = delete;
     GatewayBase(const GatewayBase& other) = delete;
-    GatewayBase(GatewayBase&& other) = default;
-    GatewayBase& operator=(GatewayBase&&) = default;
+    GatewayBase(GatewayBase&& other) noexcept = default;
+    GatewayBase& operator=(GatewayBase&&) noexcept = default;
 
     virtual ~GatewayBase() noexcept;
     /// @brief Get function for type of capro message - service or event or field
@@ -59,6 +60,7 @@ class GatewayBase
   protected:
     // Needed for unit testing
     GatewayBase() noexcept = default;
+    capro::Interfaces getInterface() const noexcept;
 
   protected:
     popo::InterfacePort m_interfaceImpl{nullptr};
