@@ -14,10 +14,25 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef IOX_DDS_GATEWAY_TEST_TEST_HPP
-#define IOX_DDS_GATEWAY_TEST_TEST_HPP
+#ifndef IOX_BINDING_C_TEST_HPP
+#define IOX_BINDING_C_TEST_HPP
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#endif // IOX_DDS_GATEWAY_TEST_TEST_HPP
+#include <numeric>
+
+namespace iox_test_binding_c
+{
+template <typename T>
+T maxUnderlyingCEnumValue()
+{
+// ignore the warning since we would like to test the behavior of an invalid enum value
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wconversion"
+    return static_cast<T>(std::numeric_limits<std::underlying_type_t<T>>::max());
+#pragma GCC diagnostic pop
+};
+}; // namespace iox_test_binding_c
+
+#endif // IOX_BINDING_C_TEST_HPP
