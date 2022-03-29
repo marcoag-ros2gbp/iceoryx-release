@@ -1,4 +1,4 @@
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,6 +40,7 @@ class Chunk_test : public RouDi_GTest
 
     void TearDown() override
     {
+        iox_pub_deinit(publisher);
     }
 
     iox_pub_storage_t publisherStorage;
@@ -48,6 +49,7 @@ class Chunk_test : public RouDi_GTest
 
 TEST_F(Chunk_test, GettingChunkHeaderFromNonConstUserPayloadWorks)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "a044b28d-ad7e-45ed-a0e2-e431ef1eacf0");
     constexpr uint32_t USER_PAYLOAD_SIZE(42U);
     void* userPayload{nullptr};
     ASSERT_EQ(iox_pub_loan_chunk(publisher, &userPayload, USER_PAYLOAD_SIZE), AllocationResult_SUCCESS);
@@ -63,6 +65,7 @@ TEST_F(Chunk_test, GettingChunkHeaderFromNonConstUserPayloadWorks)
 
 TEST_F(Chunk_test, GettingChunkHeaderFromConstUserPayloadWorks)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "9f7bb07a-f0dd-4b58-af84-5daec365d9e2");
     constexpr uint32_t USER_PAYLOAD_SIZE(42U);
     void* userPayload{nullptr};
     ASSERT_EQ(iox_pub_loan_chunk(publisher, &userPayload, USER_PAYLOAD_SIZE), AllocationResult_SUCCESS);
@@ -79,6 +82,7 @@ TEST_F(Chunk_test, GettingChunkHeaderFromConstUserPayloadWorks)
 
 TEST_F(Chunk_test, UserPayloadChunkHeaderUserPayloadRoundtripWorksForNonConst)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "ea220aac-4d7d-41c2-92ea-7f929b824555");
     constexpr uint32_t USER_PAYLOAD_SIZE(42U);
     void* userPayload{nullptr};
     ASSERT_EQ(iox_pub_loan_chunk(publisher, &userPayload, USER_PAYLOAD_SIZE), AllocationResult_SUCCESS);
@@ -92,6 +96,7 @@ TEST_F(Chunk_test, UserPayloadChunkHeaderUserPayloadRoundtripWorksForNonConst)
 
 TEST_F(Chunk_test, UserPayloadChunkHeaderUserPayloadRoundtripWorksForConst)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "e094616d-6d99-4b7f-a619-dd98ec7d1e44");
     constexpr uint32_t USER_PAYLOAD_SIZE(42U);
     void* userPayload{nullptr};
     ASSERT_EQ(iox_pub_loan_chunk(publisher, &userPayload, USER_PAYLOAD_SIZE), AllocationResult_SUCCESS);
@@ -104,6 +109,7 @@ TEST_F(Chunk_test, UserPayloadChunkHeaderUserPayloadRoundtripWorksForConst)
 
 TEST_F(Chunk_test, GettingUserHeaderFromNonConstChunkHeaderWorks)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "a0df7284-a377-4c6a-b22b-454d3f7c7b88");
     constexpr uint32_t USER_PAYLOAD_SIZE(42U);
     constexpr uint32_t USER_PAYLOAD_ALIGNMENT(64U);
     constexpr uint32_t USER_HEADER_SIZE = 16U;
@@ -129,6 +135,7 @@ TEST_F(Chunk_test, GettingUserHeaderFromNonConstChunkHeaderWorks)
 
 TEST_F(Chunk_test, GettingUserHeaderFromConstChunkHeaderWorks)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "77f4a193-7f44-43ce-8bd8-f9916b8d83dd");
     constexpr uint32_t USER_PAYLOAD_SIZE(42U);
     constexpr uint32_t USER_PAYLOAD_ALIGNMENT(64U);
     constexpr uint32_t USER_HEADER_SIZE = 16U;

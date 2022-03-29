@@ -1,5 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,10 +31,19 @@ namespace cpp2c
 iox_SubscribeState subscribeState(const iox::SubscribeState value) noexcept;
 iox_ChunkReceiveResult chunkReceiveResult(const iox::popo::ChunkReceiveResult value) noexcept;
 iox_AllocationResult allocationResult(const iox::popo::AllocationError value) noexcept;
+iox_ClientSendResult clientSendResult(const iox::popo::ClientSendError value) noexcept;
+iox_ServerSendResult serverSendResult(const iox::popo::ServerSendError value) noexcept;
 iox_WaitSetResult waitSetResult(const iox::popo::WaitSetError value) noexcept;
 iox_ListenerResult listenerResult(const iox::popo::ListenerError value) noexcept;
-iox_SubscriberTooSlowPolicy subscriberTooSlowPolicy(const iox::popo::SubscriberTooSlowPolicy policy);
-iox_QueueFullPolicy queueFullPolicy(const iox::popo::QueueFullPolicy policy);
+iox_ConsumerTooSlowPolicy consumerTooSlowPolicy(const iox::popo::ConsumerTooSlowPolicy policy) noexcept;
+iox_ConsumerTooSlowPolicy subscriberTooSlowPolicy(const iox::popo::ConsumerTooSlowPolicy policy) noexcept;
+iox_QueueFullPolicy queueFullPolicy(const iox::popo::QueueFullPolicy policy) noexcept;
+iox_ClientEvent clientEvent(const iox::popo::ClientEvent value) noexcept;
+iox_ClientState clientState(const iox::popo::ClientState value) noexcept;
+iox_ServerEvent serverEvent(const iox::popo::ServerEvent value) noexcept;
+iox_ServerState serverState(const iox::popo::ServerState value) noexcept;
+iox_ConnectionState connectionState(const iox::ConnectionState value) noexcept;
+iox_ServerRequestResult serverRequestResult(const iox::popo::ServerRequestResult value) noexcept;
 } // namespace cpp2c
 
 #endif
