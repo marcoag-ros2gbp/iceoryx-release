@@ -1,4 +1,5 @@
 // Copyright (c) 2019 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,41 +21,177 @@ namespace iox
 {
 namespace roudi
 {
-void ServiceRegistry::add(const CaproIdString_t& service, const CaproIdString_t& instance)
+ServiceRegistry::ServiceDescriptionEntry::ServiceDescriptionEntry(const capro::ServiceDescription& serviceDescription)
+    : serviceDescription(serviceDescription)
 {
-    cxx::set::add(m_serviceMap[service].instanceSet, instance);
 }
 
-void ServiceRegistry::remove(const CaproIdString_t& service, const CaproIdString_t& instance)
+cxx::expected<ServiceRegistry::Error> ServiceRegistry::add(const capro::ServiceDescription& serviceDescription,
+                                                           ReferenceCounter_t ServiceDescriptionEntry::*count)
 {
-    cxx::set::remove(m_serviceMap[service].instanceSet, instance);
-}
-
-void ServiceRegistry::find(InstanceSet_t& instances,
-                           const CaproIdString_t& service,
-                           const CaproIdString_t& instance) const
-{
-    if (instance == iox::cxx::string<100>(capro::AnyInstanceString))
+    auto index = findIndex(serviceDescription);
+    if (index != NO_INDEX)
     {
-        for (auto& instance : m_serviceMap[service].instanceSet)
+        // multiple entries with the same service descripion are possible
+        // and we just increase the count in this case (multi-set semantics)
+        // entry exists, increment counter
+        auto& entry = m_serviceDescriptions[index];
+        ((*entry).*count)++;
+        return cxx::success<>();
+    }
+
+    // entry does not exist, find a free slot if it exists
+
+    // fast path to a free slot (which was occupied by previously removed entry),
+    // prefer to fill entries close to the front
+    if (m_freeIndex != NO_INDEX)
+    {
+        auto& entry = m_serviceDescriptions[m_freeIndex];
+        entry.emplace(serviceDescription);
+        (*entry).*count = 1U;
+        m_freeIndex = NO_INDEX;
+        return cxx::success<>();
+    }
+
+    // search from start
+    for (auto& entry : m_serviceDescriptions)
+    {
+        if (!entry)
         {
-            instances.push_back(instance);
+            entry.emplace(serviceDescription);
+            (*entry).*count = 1U;
+            return cxx::success<>();
         }
     }
-    else
+
+    // append new entry at the end (the size only grows up to capacity)
+    if (m_serviceDescriptions.emplace_back())
     {
-        auto& instanceSet = m_serviceMap[service].instanceSet;
-        auto iter = std::find(instanceSet.begin(), instanceSet.end(), instance);
-        if (iter != instanceSet.end())
+        auto& entry = m_serviceDescriptions.back();
+        entry.emplace(serviceDescription);
+        (*entry).*count = 1U;
+        return cxx::success<>();
+    }
+
+    return cxx::error<Error>(Error::SERVICE_REGISTRY_FULL);
+}
+
+cxx::expected<ServiceRegistry::Error>
+ServiceRegistry::addPublisher(const capro::ServiceDescription& serviceDescription) noexcept
+{
+    return add(serviceDescription, &ServiceDescriptionEntry::publisherCount);
+}
+
+cxx::expected<ServiceRegistry::Error>
+ServiceRegistry::addServer(const capro::ServiceDescription& serviceDescription) noexcept
+{
+    return add(serviceDescription, &ServiceDescriptionEntry::serverCount);
+}
+
+void ServiceRegistry::removePublisher(const capro::ServiceDescription& serviceDescription) noexcept
+{
+    auto index = findIndex(serviceDescription);
+    if (index != NO_INDEX)
+    {
+        auto& entry = m_serviceDescriptions[index];
+
+        if (entry && entry->publisherCount >= 1U)
         {
-            instances.push_back(*iter);
+            if (--entry->publisherCount == 0U && entry->serverCount == 0)
+            {
+                entry.reset();
+                // reuse the slot in the next insertion
+                m_freeIndex = index;
+            }
         }
     }
 }
 
-const ServiceRegistry::serviceMap_t& ServiceRegistry::getServiceMap() const
+void ServiceRegistry::removeServer(const capro::ServiceDescription& serviceDescription) noexcept
 {
-    return m_serviceMap;
+    auto index = findIndex(serviceDescription);
+    if (index != NO_INDEX)
+    {
+        auto& entry = m_serviceDescriptions[index];
+
+        if (entry && entry->serverCount >= 1U)
+        {
+            if (--entry->serverCount == 0U && entry->publisherCount == 0)
+            {
+                entry.reset();
+                // reuse the slot in the next insertion
+                m_freeIndex = index;
+            }
+        }
+    }
 }
+
+void ServiceRegistry::purge(const capro::ServiceDescription& serviceDescription) noexcept
+{
+    auto index = findIndex(serviceDescription);
+    if (index != NO_INDEX)
+    {
+        auto& entry = m_serviceDescriptions[index];
+        entry.reset();
+        // reuse the slot in the next insertion
+        m_freeIndex = index;
+    }
+}
+
+void ServiceRegistry::find(const cxx::optional<capro::IdString_t>& service,
+                           const cxx::optional<capro::IdString_t>& instance,
+                           const cxx::optional<capro::IdString_t>& event,
+                           cxx::function_ref<void(const ServiceDescriptionEntry&)> callable) const noexcept
+{
+    if (!callable)
+    {
+        return;
+    }
+
+    for (auto& entry : m_serviceDescriptions)
+    {
+        if (entry)
+        {
+            bool match = (service) ? (entry->serviceDescription.getServiceIDString() == *service) : true;
+            match &= (instance) ? (entry->serviceDescription.getInstanceIDString() == *instance) : true;
+            match &= (event) ? (entry->serviceDescription.getEventIDString() == *event) : true;
+
+            if (match)
+            {
+                callable(*entry);
+            }
+        }
+    }
+}
+
+uint32_t ServiceRegistry::findIndex(const capro::ServiceDescription& serviceDescription) const noexcept
+{
+    for (uint32_t i = 0; i < m_serviceDescriptions.size(); ++i)
+    {
+        auto& entry = m_serviceDescriptions[i];
+        if (entry && entry->serviceDescription == serviceDescription)
+        {
+            return i;
+        }
+    }
+    return NO_INDEX;
+}
+
+void ServiceRegistry::forEach(cxx::function_ref<void(const ServiceDescriptionEntry&)> callable) const noexcept
+{
+    if (!callable)
+    {
+        return;
+    }
+
+    for (auto& entry : m_serviceDescriptions)
+    {
+        if (entry)
+        {
+            callable(*entry);
+        }
+    }
+}
+
 } // namespace roudi
 } // namespace iox

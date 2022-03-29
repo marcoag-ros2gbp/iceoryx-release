@@ -22,7 +22,7 @@
 #include "iceoryx_posh/roudi/roudi_cmd_line_parser_config_file_option.hpp"
 #include "iceoryx_posh/roudi/roudi_config_toml_file_provider.hpp"
 
-int main(int argc, char* argv[])
+int main(int argc, char* argv[]) noexcept
 {
     using iox::roudi::IceOryxRouDiApp;
 
@@ -47,6 +47,5 @@ int main(int argc, char* argv[])
     }
 
     IceOryxRouDiApp roudi(cmdLineArgs.value(), roudiConfig.value());
-
     return roudi.run();
 }

@@ -17,11 +17,11 @@
 #ifndef IOX_POSH_POPO_PORTS_BASE_PORT_DATA_HPP
 #define IOX_POSH_POPO_PORTS_BASE_PORT_DATA_HPP
 
+#include "iceoryx_hoofs/internal/relocatable_pointer/relative_pointer.hpp"
 #include "iceoryx_posh/capro/service_description.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
 #include "iceoryx_posh/internal/capro/capro_message.hpp"
-#include "iceoryx_posh/internal/popo/building_blocks/typed_unique_id.hpp"
-#include "iceoryx_utils/internal/relocatable_pointer/relative_pointer.hpp"
+#include "iceoryx_posh/internal/popo/building_blocks/unique_port_id.hpp"
 
 #include <atomic>
 
@@ -33,7 +33,7 @@ namespace popo
 struct BasePortData
 {
     /// @brief Constructor for base port data members
-    BasePortData() = default;
+    BasePortData() noexcept = default;
 
     /// @brief Constructor
     /// @param[in] serviceDescription creates the service service description
@@ -47,7 +47,7 @@ struct BasePortData
     BasePortData& operator=(const BasePortData&) = delete;
     BasePortData(BasePortData&&) = delete;
     BasePortData& operator=(BasePortData&&) = delete;
-    ~BasePortData() = default;
+    ~BasePortData() noexcept = default;
 
     capro::ServiceDescription m_serviceDescription;
     RuntimeName_t m_runtimeName;

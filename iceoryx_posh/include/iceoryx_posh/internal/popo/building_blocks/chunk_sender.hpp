@@ -1,5 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,15 +17,16 @@
 #ifndef IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_SENDER_HPP
 #define IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_SENDER_HPP
 
+#include "iceoryx_hoofs/cxx/expected.hpp"
+#include "iceoryx_hoofs/cxx/helplets.hpp"
+#include "iceoryx_hoofs/cxx/optional.hpp"
+#include "iceoryx_hoofs/error_handling/error_handling.hpp"
+#include "iceoryx_hoofs/internal/cxx/unique_id.hpp"
 #include "iceoryx_posh/internal/mepoo/shared_chunk.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_distributor.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_sender_data.hpp"
-#include "iceoryx_posh/internal/popo/building_blocks/typed_unique_id.hpp"
+#include "iceoryx_posh/internal/popo/building_blocks/unique_port_id.hpp"
 #include "iceoryx_posh/mepoo/chunk_header.hpp"
-#include "iceoryx_utils/cxx/expected.hpp"
-#include "iceoryx_utils/cxx/helplets.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
-#include "iceoryx_utils/error_handling/error_handling.hpp"
 
 namespace iox
 {
@@ -33,11 +34,40 @@ namespace popo
 {
 enum class AllocationError
 {
-    INVALID_STATE,
+    UNDEFINED_ERROR,
+    NO_MEMPOOLS_AVAILABLE,
     RUNNING_OUT_OF_CHUNKS,
     TOO_MANY_CHUNKS_ALLOCATED_IN_PARALLEL,
     INVALID_PARAMETER_FOR_USER_PAYLOAD_OR_USER_HEADER,
+    INVALID_PARAMETER_FOR_REQUEST_HEADER,
 };
+} // namespace popo
+
+namespace cxx
+{
+template <>
+constexpr popo::AllocationError
+from<mepoo::MemoryManager::Error, popo::AllocationError>(const mepoo::MemoryManager::Error error) noexcept;
+} // namespace cxx
+
+namespace popo
+{
+/// @brief Converts the AllocationError to a string literal
+/// @param[in] value to convert to a string literal
+/// @return pointer to a string literal
+inline constexpr const char* asStringLiteral(const AllocationError value) noexcept;
+
+/// @brief Convenience stream operator to easily use the `asStringLiteral` function with std::ostream
+/// @param[in] stream sink to write the message to
+/// @param[in] value to convert to a string literal
+/// @return the reference to `stream` which was provided as input parameter
+inline std::ostream& operator<<(std::ostream& stream, AllocationError value) noexcept;
+
+/// @brief Convenience stream operator to easily use the `asStringLiteral` function with iox::log::LogStream
+/// @param[in] stream sink to write the message to
+/// @param[in] value to convert to a string literal
+/// @return the reference to `stream` which was provided as input parameter
+inline log::LogStream& operator<<(log::LogStream& stream, AllocationError value) noexcept;
 
 /// @brief The ChunkSender is a building block of the shared memory communication infrastructure. It extends
 /// the functionality of a ChunkDistributor with the abililty to allocate and free memory chunks.
@@ -55,9 +85,9 @@ class ChunkSender : public ChunkDistributor<typename ChunkSenderDataType::ChunkD
 
     ChunkSender(const ChunkSender& other) = delete;
     ChunkSender& operator=(const ChunkSender&) = delete;
-    ChunkSender(ChunkSender&& rhs) = default;
-    ChunkSender& operator=(ChunkSender&& rhs) = default;
-    ~ChunkSender() = default;
+    ChunkSender(ChunkSender&& rhs) noexcept = default;
+    ChunkSender& operator=(ChunkSender&& rhs) noexcept = default;
+    ~ChunkSender() noexcept = default;
 
     /// @brief allocate a chunk, the ownership of the SharedChunk remains in the ChunkSender for being able to cleanup
     /// if the user process disappears
@@ -81,8 +111,21 @@ class ChunkSender : public ChunkDistributor<typename ChunkSenderDataType::ChunkD
     void release(const mepoo::ChunkHeader* const chunkHeader) noexcept;
 
     /// @brief Send an allocated chunk to all connected ChunkQueuePopper
-    /// @param[in] chunkHeader, pointer to the ChunkHeader to send
-    void send(mepoo::ChunkHeader* const chunkHeader) noexcept;
+    /// @param[in] chunkHeader, pointer to the ChunkHeader to send; the ownership of the pointer is transferred to this
+    /// method
+    /// @return the number of receiver the chunk was send to
+    uint64_t send(mepoo::ChunkHeader* const chunkHeader) noexcept;
+
+    /// @brief Send an allocated chunk to a specific ChunkQueuePopper
+    /// @param[in] chunkHeader, pointer to the ChunkHeader to send; the ownership of the pointer is transferred to this
+    /// method
+    /// @param[in] uniqueQueueId is an unique ID which identifies the queue to which this chunk shall be delivered
+    /// @param[in] lastKnownQueueIndex is used for a fast lookup of the queue with uniqueQueueId
+    /// @return true when successful, false otherwise
+    /// @note This method does not add the chunk to the history
+    bool sendToQueue(mepoo::ChunkHeader* const chunkHeader,
+                     const cxx::UniqueId uniqueQueueId,
+                     const uint32_t lastKnownQueueIndex) noexcept;
 
     /// @brief Push an allocated chunk to the history without sending it
     /// @param[in] chunkHeader, pointer to the ChunkHeader to push to the history

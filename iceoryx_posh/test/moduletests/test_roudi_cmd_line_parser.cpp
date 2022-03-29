@@ -21,7 +21,6 @@
 #include "iceoryx_posh/roudi/roudi_cmd_line_parser.hpp"
 
 using namespace ::testing;
-using ::testing::Return;
 
 using namespace iox::roudi;
 using namespace iox::config;
@@ -43,9 +42,7 @@ bool operator==(const CmdLineArgs_t& lhs, const CmdLineArgs_t& rhs)
 } // namespace config
 } // namespace iox
 
-namespace iox
-{
-namespace test
+namespace
 {
 class CmdLineParser_test : public Test
 {
@@ -99,6 +96,7 @@ class CmdLineParser_test : public Test
 
 TEST_F(CmdLineParser_test, NoOptionLeadsToDefaultValues)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "2da1d849-a652-4c23-ab74-af0dd618a552");
     constexpr uint8_t NUMBER_OF_ARGS{1U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -114,6 +112,7 @@ TEST_F(CmdLineParser_test, NoOptionLeadsToDefaultValues)
 
 TEST_F(CmdLineParser_test, WrongOptionLeadsUnkownOptionResult)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "11c1ff6b-1676-41e8-aed8-97fc2eb88b06");
     constexpr uint8_t NUMBER_OF_ARGS{2U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -130,6 +129,7 @@ TEST_F(CmdLineParser_test, WrongOptionLeadsUnkownOptionResult)
 
 TEST_F(CmdLineParser_test, HelpLongOptionLeadsToProgrammNotRunning)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "b91d25db-31b7-4d3c-85cb-971236cff6a3");
     constexpr uint8_t NUMBER_OF_ARGS{2U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -146,6 +146,7 @@ TEST_F(CmdLineParser_test, HelpLongOptionLeadsToProgrammNotRunning)
 
 TEST_F(CmdLineParser_test, HelpShortOptionLeadsToProgrammNotRunning)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "e5f9bf26-99e2-4cae-b9b4-5ff1da4afc86");
     constexpr uint8_t NUMBER_OF_ARGS{2U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -162,6 +163,7 @@ TEST_F(CmdLineParser_test, HelpShortOptionLeadsToProgrammNotRunning)
 
 TEST_F(CmdLineParser_test, VersionShortOptionLeadsToProgrammNotRunning)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "66465334-ca98-4260-9a32-0269bc415a22");
     constexpr uint8_t NUMBER_OF_ARGS{2U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -178,6 +180,7 @@ TEST_F(CmdLineParser_test, VersionShortOptionLeadsToProgrammNotRunning)
 
 TEST_F(CmdLineParser_test, VersionLongOptionLeadsToProgrammNotRunning)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "fa82d46e-6474-4158-b0f9-c970e5895827");
     constexpr uint8_t NUMBER_OF_ARGS{2U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -194,6 +197,7 @@ TEST_F(CmdLineParser_test, VersionLongOptionLeadsToProgrammNotRunning)
 
 TEST_F(CmdLineParser_test, MonitoringModeOptionsLeadToCorrectMode)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "362435bb-c35b-4617-b08b-17c359543c69");
     constexpr uint8_t NUMBER_OF_ARGS{3U};
     MonitoringMode modeArray[] = {MonitoringMode::ON, MonitoringMode::OFF};
     char* args[NUMBER_OF_ARGS];
@@ -217,6 +221,7 @@ TEST_F(CmdLineParser_test, MonitoringModeOptionsLeadToCorrectMode)
 
 TEST_F(CmdLineParser_test, WrongMonitoringModeOptionLeadsToProgrammNotRunning)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "2c2b81f2-1ba6-486f-8ec3-4cafbd0cdb3c");
     constexpr uint8_t NUMBER_OF_ARGS{3U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -235,6 +240,7 @@ TEST_F(CmdLineParser_test, WrongMonitoringModeOptionLeadsToProgrammNotRunning)
 
 TEST_F(CmdLineParser_test, LogLevelOptionsLeadToCorrectLogLevel)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "25799d7a-9f34-4bcd-bb01-f6dbe270fac3");
     constexpr uint8_t NUMBER_OF_ARGS{3U};
     LogLevel loglevelArray[] = {LogLevel::kOff,
                                 LogLevel::kFatal,
@@ -264,6 +270,7 @@ TEST_F(CmdLineParser_test, LogLevelOptionsLeadToCorrectLogLevel)
 
 TEST_F(CmdLineParser_test, WrongLogLevelOptionLeadsToProgrammNotRunning)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "00a08b20-bdf9-436a-9ead-a65e19c89f91");
     constexpr uint8_t NUMBER_OF_ARGS{3U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -282,6 +289,7 @@ TEST_F(CmdLineParser_test, WrongLogLevelOptionLeadsToProgrammNotRunning)
 
 TEST_F(CmdLineParser_test, KillDelayLongOptionLeadsToCorrectDelay)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "a5f328a0-96e8-4ca2-8b35-efa0d9c55538");
     constexpr uint8_t NUMBER_OF_ARGS{3U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -301,6 +309,7 @@ TEST_F(CmdLineParser_test, KillDelayLongOptionLeadsToCorrectDelay)
 
 TEST_F(CmdLineParser_test, KillDelayShortOptionLeadsToCorrectDelay)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "73d31293-a428-48e6-9c04-a22a276117ab");
     constexpr uint8_t NUMBER_OF_ARGS{3U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -320,6 +329,7 @@ TEST_F(CmdLineParser_test, KillDelayShortOptionLeadsToCorrectDelay)
 
 TEST_F(CmdLineParser_test, KillDelayOptionOutOfBoundsLeadsToProgrammNotRunning)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "eb6a67cd-4e5a-41df-bf79-ef5dcdb13fbf");
     constexpr uint8_t NUMBER_OF_ARGS{3U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -338,6 +348,7 @@ TEST_F(CmdLineParser_test, KillDelayOptionOutOfBoundsLeadsToProgrammNotRunning)
 
 TEST_F(CmdLineParser_test, CompatibilityLevelOptionsLeadToCorrectCompatibilityLevel)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "62b7d5c9-0638-4314-b4f7-c622ef101045");
     constexpr uint8_t NUMBER_OF_ARGS{3U};
     CompatibilityCheckLevel loglevelArray[] = {CompatibilityCheckLevel::OFF,
                                                CompatibilityCheckLevel::MAJOR,
@@ -366,6 +377,7 @@ TEST_F(CmdLineParser_test, CompatibilityLevelOptionsLeadToCorrectCompatibilityLe
 
 TEST_F(CmdLineParser_test, WrongCompatibilityLevelOptionLeadsToProgrammNotRunning)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "f270804c-428c-410f-865d-2dc039fcb401");
     constexpr uint8_t NUMBER_OF_ARGS{3U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -384,6 +396,7 @@ TEST_F(CmdLineParser_test, WrongCompatibilityLevelOptionLeadsToProgrammNotRunnin
 
 TEST_F(CmdLineParser_test, UniqueIdLongOptionLeadsToCorrectUniqueId)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "84d0b41d-44ae-498d-81a9-c94b92255f2b");
     constexpr uint8_t NUMBER_OF_ARGS{3U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -404,6 +417,7 @@ TEST_F(CmdLineParser_test, UniqueIdLongOptionLeadsToCorrectUniqueId)
 
 TEST_F(CmdLineParser_test, UniqueIdShortOptionLeadsToCorrectUniqueId)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "a12e391c-c382-4eba-b620-59dcb1a150d9");
     constexpr uint8_t NUMBER_OF_ARGS{3U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -424,6 +438,7 @@ TEST_F(CmdLineParser_test, UniqueIdShortOptionLeadsToCorrectUniqueId)
 
 TEST_F(CmdLineParser_test, OutOfBoundsUniqueIdOptionLeadsToProgrammNotRunning)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "13f6b1fb-3c6d-4dda-87ab-d883533bb1ed");
     constexpr uint8_t NUMBER_OF_ARGS{3U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -442,6 +457,7 @@ TEST_F(CmdLineParser_test, OutOfBoundsUniqueIdOptionLeadsToProgrammNotRunning)
 
 TEST_F(CmdLineParser_test, CmdLineParsingModeEqualToOneHandlesOnlyTheFirstOption)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "1e674db9-d71a-4b82-83cc-eea2e04f4601");
     constexpr uint8_t NUMBER_OF_ARGS{5U};
     char* args[NUMBER_OF_ARGS];
     char appName[] = "./foo";
@@ -475,6 +491,5 @@ TEST_F(CmdLineParser_test, CmdLineParsingModeEqualToOneHandlesOnlyTheFirstOption
     EXPECT_TRUE(result.value().run);
 }
 
-} // namespace test
-} // namespace iox
+} // namespace
 #endif

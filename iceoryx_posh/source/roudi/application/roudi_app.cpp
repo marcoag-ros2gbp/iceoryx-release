@@ -17,22 +17,22 @@
 
 #include "iceoryx_posh/roudi/roudi_app.hpp"
 
+#include "iceoryx_hoofs/cxx/helplets.hpp"
+#include "iceoryx_hoofs/cxx/optional.hpp"
+#include "iceoryx_hoofs/internal/posix_wrapper/shared_memory_object/memory_map.hpp"
+#include "iceoryx_hoofs/log/logging.hpp"
+#include "iceoryx_hoofs/log/logmanager.hpp"
+#include "iceoryx_hoofs/platform/getopt.hpp"
+#include "iceoryx_hoofs/platform/resource.hpp"
+#include "iceoryx_hoofs/platform/semaphore.hpp"
+#include "iceoryx_hoofs/posix_wrapper/posix_access_rights.hpp"
+#include "iceoryx_hoofs/posix_wrapper/signal_handler.hpp"
+#include "iceoryx_hoofs/posix_wrapper/thread.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
 #include "iceoryx_posh/internal/log/posh_logging.hpp"
-#include "iceoryx_posh/internal/popo/building_blocks/typed_unique_id.hpp"
+#include "iceoryx_posh/internal/popo/building_blocks/unique_port_id.hpp"
 #include "iceoryx_posh/internal/roudi/roudi.hpp"
 #include "iceoryx_posh/roudi/cmd_line_args.hpp"
-#include "iceoryx_utils/cxx/helplets.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
-#include "iceoryx_utils/internal/posix_wrapper/shared_memory_object/memory_map.hpp"
-#include "iceoryx_utils/log/logging.hpp"
-#include "iceoryx_utils/log/logmanager.hpp"
-#include "iceoryx_utils/platform/getopt.hpp"
-#include "iceoryx_utils/platform/resource.hpp"
-#include "iceoryx_utils/platform/semaphore.hpp"
-#include "iceoryx_utils/posix_wrapper/posix_access_rights.hpp"
-#include "iceoryx_utils/posix_wrapper/signal_handler.hpp"
-#include "iceoryx_utils/posix_wrapper/thread.hpp"
 
 #include "stdio.h"
 #include <signal.h>
@@ -90,7 +90,7 @@ RouDiApp::RouDiApp(const config::CmdLineArgs_t& cmdLineArgs, const RouDiConfig_t
     m_run &= cmdLineArgs.run;
     if (cmdLineArgs.uniqueRouDiId)
     {
-        popo::internal::setUniqueRouDiId(cmdLineArgs.uniqueRouDiId.value());
+        popo::UniquePortId::setUniqueRouDiId(cmdLineArgs.uniqueRouDiId.value());
     }
 
     // be silent if not running
@@ -124,7 +124,7 @@ bool RouDiApp::checkAndOptimizeConfig(const RouDiConfig_t& config) noexcept
     return true;
 }
 
-bool RouDiApp::waitForSignal() const noexcept
+bool RouDiApp::waitForSignal() noexcept
 {
     return !m_semaphore.wait().has_error();
 }

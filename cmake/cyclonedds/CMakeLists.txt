@@ -1,4 +1,5 @@
 # Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
+# Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +14,7 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(cyclonedds-build CXX)
 
 include(ProcessorCount)
@@ -27,14 +28,13 @@ if(NOT N EQUAL 0)
     endif()
 endif()
 
-if(WIN32)
-    set(CREATE_PATH_COMMAND mkdir)
-else()
-    set(CREATE_PATH_COMMAND mkdir -p)
-endif(WIN32)
-
 if(DEFINED CMAKE_TOOLCHAIN_FILE)
     set(TOOLCHAIN_FILE "-DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
+endif()
+
+set(EXTRA_CMAKE_ARGS)
+if(DEFINED CMAKE_CXX_FLAGS)
+    list(APPEND EXTRA_CMAKE_ARGS -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS})
 endif()
 
 # ===== Helpers
@@ -61,12 +61,7 @@ function(fetch_and_install name)
     endif()
 
     # Build
-    execute_process(COMMAND ${CREATE_PATH_COMMAND} "${BUILD_DIR}"
-        RESULT_VARIABLE result
-        WORKING_DIRECTORY ${CMAKE_BINARY_DIR} )
-    if(result)
-        message(FATAL_ERROR "CMake step [create build dir] for ${name} failed: ${result}")
-    endif()
+    file(MAKE_DIRECTORY "${BUILD_DIR}")
 
     # Parse additional CMake flags
     set(ADDITIONAL_CMAKE_FLAGS "")
@@ -75,7 +70,7 @@ function(fetch_and_install name)
     endforeach()
     string( REPLACE ";" " " ADDITIONAL_CMAKE_FLAGS "${ADDITIONAL_CMAKE_FLAGS}")
 
-    execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" "-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}" "${ADDITIONAL_CMAKE_FLAGS}" "${TOOLCHAIN_FILE}" "${SOURCE_DIR}"
+    execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" "-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}" "${ADDITIONAL_CMAKE_FLAGS}" "${TOOLCHAIN_FILE}" "${EXTRA_CMAKE_ARGS}"  "${SOURCE_DIR}"
         RESULT_VARIABLE result
         WORKING_DIRECTORY ${BUILD_DIR} )
     if(result)
@@ -90,8 +85,7 @@ function(fetch_and_install name)
     endif()
 endfunction()
 
-# ===== Install 
+# ===== Install
 
-fetch_and_install(idlpp-cxx)
-fetch_and_install(cyclonedds)
-fetch_and_install(cyclonedds-cxx -DBUILD_TESTING=OFF)
+fetch_and_install(cyclonedds -DBUILD_IDLC=ON)
+fetch_and_install(cyclonedds-cxx)

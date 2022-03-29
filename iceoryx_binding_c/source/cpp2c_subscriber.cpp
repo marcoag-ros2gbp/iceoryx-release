@@ -22,7 +22,7 @@
 
 using namespace iox::popo;
 
-cpp2c_Subscriber::~cpp2c_Subscriber()
+cpp2c_Subscriber::~cpp2c_Subscriber() noexcept
 {
     if (m_portData)
     {
@@ -101,4 +101,3 @@ bool cpp2c_Subscriber::hasSamples() const noexcept
 {
     return iox::popo::SubscriberPortUser(m_portData).hasNewChunks();
 }
-

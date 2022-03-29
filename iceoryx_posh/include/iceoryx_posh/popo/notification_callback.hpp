@@ -17,7 +17,7 @@
 #ifndef IOX_POSH_POPO_EVENT_CALLBACK_HPP
 #define IOX_POSH_POPO_EVENT_CALLBACK_HPP
 
-#include "iceoryx_utils/cxx/attributes.hpp"
+#include "iceoryx_hoofs/cxx/attributes.hpp"
 
 namespace iox
 {
@@ -78,15 +78,17 @@ struct NotificationCallback<OriginType, internal::NoType_t>
 /// @param[in] callback reference to a callback with the signature void(OriginType*)
 /// @return the callback stored inside of an NotificationCallback
 template <typename OriginType, typename ContextDataType = internal::NoType_t>
-NotificationCallback<OriginType, ContextDataType> createNotificationCallback(void (&callback)(OriginType* const));
+NotificationCallback<OriginType, ContextDataType>
+createNotificationCallback(void (&callback)(OriginType* const)) noexcept;
 
 /// @brief creates an NotificationCallback with a user defined value
 /// @param[in] callback reference to a callback with the signature void(OriginType*, ContextDataType*)
 /// @param[in] userValue reference to a user defined value
 /// @return the callback and user value stored inside of an NotificationCallback
 template <typename OriginType, typename ContextDataType>
-NotificationCallback<OriginType, ContextDataType>
-createNotificationCallback(void (&callback)(OriginType* const, ContextDataType* const), ContextDataType& userValue);
+NotificationCallback<OriginType, ContextDataType> createNotificationCallback(void (&callback)(OriginType* const,
+                                                                                              ContextDataType* const),
+                                                                             ContextDataType& userValue) noexcept;
 
 } // namespace popo
 } // namespace iox

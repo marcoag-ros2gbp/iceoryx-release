@@ -1,5 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2020 - 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2020 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,6 +38,13 @@ extern "C" {
 #include "iceoryx_binding_c/subscriber.h"
 }
 
+/// @todo iox-#1221 remove this workaround needed for CycloneDDS due to our change to use the head for storage
+struct SubscriberWithStoragePointer
+{
+    void* subscriberStorage{nullptr};
+    cpp2c_Subscriber subscriber;
+};
+
 constexpr uint64_t SUBSCRIBER_OPTIONS_INIT_CHECK_CONSTANT = 543212345;
 
 void iox_sub_options_init(iox_sub_options_t* options)
@@ -54,6 +61,7 @@ void iox_sub_options_init(iox_sub_options_t* options)
     options->nodeName = nullptr;
     options->subscribeOnCreate = subscriberOptions.subscribeOnCreate;
     options->queueFullPolicy = cpp2c::queueFullPolicy(subscriberOptions.queueFullPolicy);
+    options->requirePublisherHistorySupport = false;
 
     options->initCheck = SUBSCRIBER_OPTIONS_INIT_CHECK_CONSTANT;
 }
@@ -75,9 +83,6 @@ iox_sub_t iox_sub_init(iox_sub_storage_t* self,
         return nullptr;
     }
 
-    new (self) cpp2c_Subscriber();
-    iox_sub_t me = reinterpret_cast<iox_sub_t>(self);
-
     SubscriberOptions subscriberOptions;
 
     // use default options otherwise
@@ -98,7 +103,16 @@ iox_sub_t iox_sub_init(iox_sub_storage_t* self,
         }
         subscriberOptions.subscribeOnCreate = options->subscribeOnCreate;
         subscriberOptions.queueFullPolicy = c2cpp::queueFullPolicy(options->queueFullPolicy);
+        subscriberOptions.requiresPublisherHistorySupport = options->requirePublisherHistorySupport;
     }
+
+    // this is required for CycloneDDS to limit the fallout of our change to use the heap for storage
+    // it should be removed with #1221
+    auto meWithStoragePointer = new SubscriberWithStoragePointer();
+    meWithStoragePointer->subscriberStorage = self;
+    auto me = &meWithStoragePointer->subscriber;
+    assert(reinterpret_cast<uint64_t>(me) - reinterpret_cast<uint64_t>(meWithStoragePointer) == sizeof(void*)
+           && "Size mismatch for SubscriberWithStoragePointer!");
 
     me->m_portData =
         PoshRuntime::getInstance().getMiddlewareSubscriber(ServiceDescription{IdString_t(TruncateToCapacity, service),
@@ -106,12 +120,18 @@ iox_sub_t iox_sub_init(iox_sub_storage_t* self,
                                                                               IdString_t(TruncateToCapacity, event)},
                                                            subscriberOptions);
 
+    self->do_not_touch_me[0] = reinterpret_cast<uint64_t>(me);
     return me;
 }
 
 void iox_sub_deinit(iox_sub_t const self)
 {
-    self->~cpp2c_Subscriber();
+    iox::cxx::Expects(self != nullptr);
+
+    auto addressOfSelf = reinterpret_cast<uint64_t>(self);
+    auto* selfWithStoragePointer = reinterpret_cast<SubscriberWithStoragePointer*>(addressOfSelf - sizeof(void*));
+
+    delete selfWithStoragePointer;
 }
 
 void iox_sub_subscribe(iox_sub_t const self)

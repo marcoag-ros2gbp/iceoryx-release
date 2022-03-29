@@ -17,15 +17,16 @@
 #ifndef IOX_POSH_ROUDI_PORT_POOL_DATA_HPP
 #define IOX_POSH_ROUDI_PORT_POOL_DATA_HPP
 
+#include "iceoryx_hoofs/cxx/optional.hpp"
+#include "iceoryx_hoofs/cxx/vector.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/condition_variable_data.hpp"
-#include "iceoryx_posh/internal/popo/ports/application_port.hpp"
+#include "iceoryx_posh/internal/popo/ports/client_port_data.hpp"
 #include "iceoryx_posh/internal/popo/ports/interface_port.hpp"
 #include "iceoryx_posh/internal/popo/ports/publisher_port_data.hpp"
+#include "iceoryx_posh/internal/popo/ports/server_port_data.hpp"
 #include "iceoryx_posh/internal/popo/ports/subscriber_port_data.hpp"
 #include "iceoryx_posh/internal/runtime/node_data.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
-#include "iceoryx_utils/cxx/vector.hpp"
 
 namespace iox
 {
@@ -38,14 +39,14 @@ class FixedPositionContainer
   public:
     static constexpr uint64_t FIRST_ELEMENT = std::numeric_limits<uint64_t>::max();
 
-    bool hasFreeSpace();
+    bool hasFreeSpace() noexcept;
 
     template <typename... Targs>
-    T* insert(Targs&&... args);
+    T* insert(Targs&&... args) noexcept;
 
-    void erase(T* const element);
+    void erase(const T* const element) noexcept;
 
-    cxx::vector<T*, Capacity> content();
+    cxx::vector<T*, Capacity> content() noexcept;
 
   private:
     cxx::vector<cxx::optional<T>, Capacity> m_data;
@@ -54,16 +55,14 @@ class FixedPositionContainer
 struct PortPoolData
 {
     FixedPositionContainer<popo::InterfacePortData, MAX_INTERFACE_NUMBER> m_interfacePortMembers;
-    FixedPositionContainer<popo::ApplicationPortData, MAX_PROCESS_NUMBER> m_applicationPortMembers;
     FixedPositionContainer<runtime::NodeData, MAX_NODE_NUMBER> m_nodeMembers;
     FixedPositionContainer<popo::ConditionVariableData, MAX_NUMBER_OF_CONDITION_VARIABLES> m_conditionVariableMembers;
 
     FixedPositionContainer<iox::popo::PublisherPortData, MAX_PUBLISHERS> m_publisherPortMembers;
     FixedPositionContainer<iox::popo::SubscriberPortData, MAX_SUBSCRIBERS> m_subscriberPortMembers;
 
-    // required to be atomic since a service can be offered or stopOffered while reading
-    // this variable in a user application
-    std::atomic<uint64_t> m_serviceRegistryChangeCounter{0};
+    FixedPositionContainer<iox::popo::ServerPortData, MAX_SERVERS> m_serverPortMembers;
+    FixedPositionContainer<iox::popo::ClientPortData, MAX_CLIENTS> m_clientPortMembers;
 };
 
 } // namespace roudi
