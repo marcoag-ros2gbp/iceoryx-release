@@ -17,9 +17,9 @@
 #ifndef IOX_POPO_SUBSCRIBER_PORT_SINGLE_PRODUCER_HPP_
 #define IOX_POPO_SUBSCRIBER_PORT_SINGLE_PRODUCER_HPP_
 
+#include "iceoryx_hoofs/cxx/optional.hpp"
 #include "iceoryx_posh/internal/capro/capro_message.hpp"
 #include "iceoryx_posh/internal/popo/ports/subscriber_port_roudi.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
 
 namespace iox
 {
@@ -37,8 +37,8 @@ class SubscriberPortSingleProducer : public SubscriberPortRouDi
 
     SubscriberPortSingleProducer(const SubscriberPortSingleProducer& other) = delete;
     SubscriberPortSingleProducer& operator=(const SubscriberPortSingleProducer&) = delete;
-    SubscriberPortSingleProducer(SubscriberPortSingleProducer&& rhs) = default;
-    SubscriberPortSingleProducer& operator=(SubscriberPortSingleProducer&& rhs) = default;
+    SubscriberPortSingleProducer(SubscriberPortSingleProducer&& rhs) noexcept = default;
+    SubscriberPortSingleProducer& operator=(SubscriberPortSingleProducer&& rhs) noexcept = default;
     ~SubscriberPortSingleProducer() = default;
 
     /// @brief get an optional CaPro message that changes the subscription state of the subscriber

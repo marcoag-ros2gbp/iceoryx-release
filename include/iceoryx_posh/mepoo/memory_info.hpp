@@ -1,4 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -26,8 +27,8 @@ namespace mepoo
 /// different types of memory on e.g. different devices with different characteristics.
 struct MemoryInfo
 {
-    static constexpr uint32_t DEFAULT_DEVICE_ID{0u};
-    static constexpr uint32_t DEFAULT_MEMORY_TYPE{0u};
+    static constexpr uint32_t DEFAULT_DEVICE_ID{0U};
+    static constexpr uint32_t DEFAULT_MEMORY_TYPE{0U};
 
     // These are intentionally not defined as enum classes for flexibility and extendibility.
     // Currently only the defaults are used.
@@ -37,15 +38,19 @@ struct MemoryInfo
     uint32_t deviceId{DEFAULT_DEVICE_ID};
     uint32_t memoryType{DEFAULT_MEMORY_TYPE};
 
-    MemoryInfo(const MemoryInfo&) = default;
-    MemoryInfo(MemoryInfo&&) = default;
-    MemoryInfo& operator=(const MemoryInfo&) = default;
-    MemoryInfo& operator=(MemoryInfo&&) = default;
+    MemoryInfo(const MemoryInfo&) noexcept = default;
+    MemoryInfo(MemoryInfo&&) noexcept = default;
+    MemoryInfo& operator=(const MemoryInfo&) noexcept = default;
+    MemoryInfo& operator=(MemoryInfo&&) noexcept = default;
 
     /// @brief creates a MemoryInfo object
     /// @param[in] deviceId specifies the device where the memory is located
     /// @param[in] memoryType encodes additional information about the memory
-    MemoryInfo(uint32_t deviceId = DEFAULT_DEVICE_ID, uint32_t memoryType = DEFAULT_MEMORY_TYPE);
+    explicit MemoryInfo(uint32_t deviceId = DEFAULT_DEVICE_ID, uint32_t memoryType = DEFAULT_MEMORY_TYPE) noexcept;
+
+    /// @brief comparison operator
+    /// @param[in] rhs the right hand side of the comparison
+    bool operator==(const MemoryInfo& rhs) const noexcept;
 };
 } // namespace mepoo
 } // namespace iox

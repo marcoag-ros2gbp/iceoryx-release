@@ -1,5 +1,4 @@
 # Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-# Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +13,7 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(cpptoml-build CXX)
 
 include(ProcessorCount)
@@ -73,7 +72,14 @@ if(result)
     message(WARNING "CMake step [patch] for cpptoml failed: ${result}! Build of cpptoml might fail")
 endif()
 
-execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" "-DCPPTOML_BUILD_EXAMPLES=off" "-DENABLE_LIBCXX=off" "-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}" "${TOOLCHAIN_FILE}" "${SOURCE_DIR}"
+execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" "-DENABLE_LIBCXX=off" "-DCPPTOML_BUILD_EXAMPLES=off" "-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}" "${TOOLCHAIN_FILE}" "${SOURCE_DIR}"
+        "-DCMAKE_C_FLAGS_INIT=${CMAKE_C_FLAGS_INIT}"
+        "-DCMAKE_CXX_FLAGS_INIT=${CMAKE_CXX_FLAGS_INIT}"
+        "-DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}"
+        "-DCMAKE_C_COMPILER_TARGET=${CMAKE_C_COMPILER_TARGET}"
+        "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
+        "-DCMAKE_CXX_COMPILER_TARGET=${CMAKE_CXX_COMPILER_TARGET}"
+        "-DCMAKE_LINKER=${CMAKE_LINKER}"
     RESULT_VARIABLE result
     WORKING_DIRECTORY ${BUILD_DIR} )
 if(result)

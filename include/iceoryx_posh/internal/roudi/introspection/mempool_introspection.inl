@@ -17,7 +17,7 @@
 #ifndef IOX_POSH_ROUDI_INTROSPECTION_MEMPOOL_INTROSPECTION_INL
 #define IOX_POSH_ROUDI_INTROSPECTION_MEMPOOL_INTROSPECTION_INL
 
-#include "iceoryx_utils/posix_wrapper/thread.hpp"
+#include "iceoryx_hoofs/posix_wrapper/thread.hpp"
 #include "mempool_introspection.hpp"
 
 namespace iox
@@ -26,7 +26,7 @@ namespace roudi
 {
 template <typename MemoryManager, typename SegmentManager, typename PublisherPort>
 inline MemPoolIntrospection<MemoryManager, SegmentManager, PublisherPort>::MemPoolIntrospection(
-    MemoryManager& rouDiInternalMemoryManager, SegmentManager& segmentManager, PublisherPort&& publisherPort)
+    MemoryManager& rouDiInternalMemoryManager, SegmentManager& segmentManager, PublisherPort&& publisherPort) noexcept
     : m_rouDiInternalMemoryManager(&rouDiInternalMemoryManager)
     , m_segmentManager(&segmentManager)
     , m_publisherPort(std::move(publisherPort))
@@ -35,7 +35,7 @@ inline MemPoolIntrospection<MemoryManager, SegmentManager, PublisherPort>::MemPo
 }
 
 template <typename MemoryManager, typename SegmentManager, typename PublisherPort>
-inline MemPoolIntrospection<MemoryManager, SegmentManager, PublisherPort>::~MemPoolIntrospection()
+inline MemPoolIntrospection<MemoryManager, SegmentManager, PublisherPort>::~MemPoolIntrospection() noexcept
 {
     stop();
     m_publisherPort.stopOffer();

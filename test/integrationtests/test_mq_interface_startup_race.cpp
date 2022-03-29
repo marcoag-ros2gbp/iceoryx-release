@@ -18,21 +18,24 @@
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
 #include "test.hpp"
 
+#include "iceoryx_hoofs/internal/posix_wrapper/message_queue.hpp"
+#include "iceoryx_hoofs/internal/units/duration.hpp"
+#include "iceoryx_hoofs/posix_wrapper/posix_call.hpp"
 #include "iceoryx_posh/internal/runtime/ipc_message.hpp"
 #include "iceoryx_posh/internal/runtime/ipc_runtime_interface.hpp"
-#include "iceoryx_utils/cxx/smart_c.hpp"
-#include "iceoryx_utils/internal/posix_wrapper/message_queue.hpp"
-#include "iceoryx_utils/internal/units/duration.hpp"
 
 
 #include <chrono>
 #include <mutex>
 #include <thread>
 
+namespace
+{
 using namespace ::testing;
 using namespace iox;
 using namespace iox::units;
 using namespace iox::posix;
+using namespace iox::units::duration_literals;
 
 using iox::runtime::IpcInterfaceBase;
 using iox::runtime::IpcMessage;
@@ -56,7 +59,7 @@ class CMqInterfaceStartupRace_test : public Test
 {
   public:
     CMqInterfaceStartupRace_test()
-        : m_appQueue{IpcChannelType::create()}
+        : m_appQueue{platform::IoxIpcChannelType::create()}
     {
     }
 
@@ -99,7 +102,7 @@ class CMqInterfaceStartupRace_test : public Test
 
         if (m_appQueue.has_error())
         {
-            m_appQueue = IpcChannelType::create(MqAppName, IpcChannelMode::BLOCKING, IpcChannelSide::CLIENT);
+            m_appQueue = platform::IoxIpcChannelType::create(MqAppName, IpcChannelSide::CLIENT);
         }
         ASSERT_THAT(m_appQueue.has_error(), false);
 
@@ -108,15 +111,16 @@ class CMqInterfaceStartupRace_test : public Test
 
     /// @note smart_lock in combination with optional is currently not really usable
     std::mutex m_roudiQueueMutex;
-    IpcChannelType::result_t m_roudiQueue{
-        IpcChannelType::create(roudi::IPC_CHANNEL_ROUDI_NAME, IpcChannelMode::BLOCKING, IpcChannelSide::SERVER)};
+    platform::IoxIpcChannelType::result_t m_roudiQueue{
+        platform::IoxIpcChannelType::create(roudi::IPC_CHANNEL_ROUDI_NAME, IpcChannelSide::SERVER)};
     std::mutex m_appQueueMutex;
-    IpcChannelType::result_t m_appQueue;
+    platform::IoxIpcChannelType::result_t m_appQueue;
 };
 
 #if !defined(__APPLE__)
 TEST_F(CMqInterfaceStartupRace_test, DISABLED_ObsoleteRouDiMq)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "a94080de-e07d-433b-be0d-6ca748006664");
     /// @note this test checks if the application handles the situation when the roudi mqueue was not properly cleaned
     /// up and tries to use the obsolet mqueue while RouDi gets restarted and cleans its resources up and creates a new
     /// mqueue
@@ -133,17 +137,12 @@ TEST_F(CMqInterfaceStartupRace_test, DISABLED_ObsoleteRouDiMq)
         checkRegRequest(msg);
 
         // simulate the restart of RouDi with the mqueue cleanup
-        auto sysC = iox::cxx::makeSmartC(
-            system, iox::cxx::ReturnMode::PRE_DEFINED_ERROR_CODE, {-1}, {}, DeleteRouDiMessageQueue);
-
-        if (sysC.hasErrors())
-        {
-            std::cerr << "system call failed with error: " << sysC.getErrorString();
+        posix::posixCall(system)(DeleteRouDiMessageQueue).failureReturnValue(-1).evaluate().or_else([](auto& r) {
+            std::cerr << "system call failed with error: " << r.getHumanReadableErrnum();
             exit(EXIT_FAILURE);
-        }
+        });
 
-        auto m_roudiQueue2 =
-            IpcChannelType::create(roudi::IPC_CHANNEL_ROUDI_NAME, IpcChannelMode::BLOCKING, IpcChannelSide::SERVER);
+        auto m_roudiQueue2 = platform::IoxIpcChannelType::create(roudi::IPC_CHANNEL_ROUDI_NAME, IpcChannelSide::SERVER);
 
         // check if the app retries to register at RouDi
         request = m_roudiQueue2->timedReceive(15_s);
@@ -167,6 +166,7 @@ TEST_F(CMqInterfaceStartupRace_test, DISABLED_ObsoleteRouDiMq)
 
 TEST_F(CMqInterfaceStartupRace_test, DISABLED_ObsoleteRouDiMqWithFullMq)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "e7594a83-d0d1-49fb-8882-9d4dcc0372ef");
     /// @note this test checks if the application handles the situation when the roudi mqueue was not properly cleaned
     /// up and tries to use the obsolet mqueue while RouDi gets restarted and cleans its resources up and creates a new
     /// mqueue, the obsolete mqueue was filled up to the max message size, e.g. by the KEEP_ALIVE messages
@@ -184,16 +184,12 @@ TEST_F(CMqInterfaceStartupRace_test, DISABLED_ObsoleteRouDiMqWithFullMq)
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
 
         // simulate the restart of RouDi with the mqueue cleanup
-        auto sysC = iox::cxx::makeSmartC(
-            system, iox::cxx::ReturnMode::PRE_DEFINED_ERROR_CODE, {-1}, {}, DeleteRouDiMessageQueue);
-
-        if (sysC.hasErrors())
-        {
-            std::cerr << "system call failed with error: " << sysC.getErrorString();
+        posix::posixCall(system)(DeleteRouDiMessageQueue).failureReturnValue(-1).evaluate().or_else([](auto& r) {
+            std::cerr << "system call failed with error: " << r.getHumanReadableErrnum();
             exit(EXIT_FAILURE);
-        }
-        auto newRoudi =
-            IpcChannelType::create(roudi::IPC_CHANNEL_ROUDI_NAME, IpcChannelMode::BLOCKING, IpcChannelSide::SERVER);
+        });
+
+        auto newRoudi = platform::IoxIpcChannelType::create(roudi::IPC_CHANNEL_ROUDI_NAME, IpcChannelSide::SERVER);
 
         // check if the app retries to register at RouDi
         auto request = newRoudi->timedReceive(15_s);
@@ -225,6 +221,7 @@ TEST_F(CMqInterfaceStartupRace_test, DISABLED_ObsoleteRouDiMqWithFullMq)
 
 TEST_F(CMqInterfaceStartupRace_test, ObsoleteRegAck)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "16eb0dff-ef66-4943-b7a4-c0c0f079a0ae");
     /// @note this test checks if the application handles the situation when it sends an REG request to RouDi,
     /// terminates, gets restarted and sends a new REG request while RouDi has not yet processed the first REG request;
     /// this results in a message in the application mqueue which will be read with the next command and results in a
@@ -266,3 +263,5 @@ TEST_F(CMqInterfaceStartupRace_test, ObsoleteRegAck)
     auto response = m_appQueue->timedReceive(10_ms);
     EXPECT_THAT(response.has_error(), Eq(true));
 }
+
+} // namespace

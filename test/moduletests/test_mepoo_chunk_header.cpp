@@ -1,4 +1,5 @@
-// Copyright (c) 2020 - 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2020 - 2022 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 by Robert Bosch GmbH. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,12 +15,16 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "iceoryx_hoofs/cxx/convert.hpp"
+#include "iceoryx_hoofs/cxx/type_traits.hpp"
+#include "iceoryx_hoofs/cxx/unique_ptr.hpp"
 #include "iceoryx_posh/internal/mepoo/mem_pool.hpp"
 #include "iceoryx_posh/internal/mepoo/memory_manager.hpp"
 #include "iceoryx_posh/mepoo/chunk_header.hpp"
-#include "iceoryx_utils/cxx/unique_ptr.hpp"
 
 #include "test.hpp"
+
+#include <type_traits>
 
 namespace
 {
@@ -30,6 +35,7 @@ using UserPayloadOffset_t = ChunkHeader::UserPayloadOffset_t;
 
 TEST(ChunkHeader_test, ChunkHeaderHasInitializedMembers)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "b998bcb8-7db0-457d-a25a-86eae34f68dd");
     constexpr uint32_t CHUNK_SIZE{753U};
     constexpr uint32_t USER_PAYLOAD_SIZE{8U};
     constexpr uint32_t USER_PAYLOAD_ALIGNMENT{iox::CHUNK_DEFAULT_USER_PAYLOAD_ALIGNMENT};
@@ -45,7 +51,7 @@ TEST(ChunkHeader_test, ChunkHeaderHasInitializedMembers)
     // deliberately used a magic number to make the test fail when CHUNK_HEADER_VERSION changes
     EXPECT_THAT(sut.chunkHeaderVersion(), Eq(1U));
 
-    EXPECT_THAT(sut.originId(), Eq(iox::UniquePortId(iox::popo::InvalidId)));
+    EXPECT_THAT(sut.originId(), Eq(iox::popo::UniquePortId(iox::popo::InvalidPortId)));
 
     EXPECT_THAT(sut.sequenceNumber(), Eq(0U));
 
@@ -60,9 +66,83 @@ TEST(ChunkHeader_test, ChunkHeaderHasInitializedMembers)
     EXPECT_THAT(userPayloadStartAddress - chunkStartAddress, Eq(sizeof(ChunkHeader)));
 }
 
+TEST(ChunkHeader_test, ChunkHeaderBinaryCompatibilityCheck)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "8f88f81a-7e18-11ec-b34d-dd7741c14c43");
+
+    // NOTE: when this test fails and needs to be changed,
+    //       most probably one needs to increment the CHUNK_HEADER_VERSION
+
+    // When this struct is touched, the CHUNK_HEADER_VERSION must be changed
+    struct ExpectedChunkHeaderLayout
+    {
+        uint32_t chunkSize{0U};
+        uint8_t chunkHeaderVersion{0U};
+        uint8_t reserved{0U};
+        uint16_t userHeaderId{0};
+        uint64_t originId{0U};
+        uint64_t sequenceNumber{0U};
+        uint32_t userHeaderSize{0U};
+        uint32_t userPayloadSize{0U};
+        uint32_t userPayloadAlignment{0U};
+        uint32_t userPayloadOffset{0U};
+    };
+
+    constexpr auto EXPECTED_CHUNK_HEADER_VERSION{1U};
+    EXPECT_THAT(ChunkHeader::CHUNK_HEADER_VERSION, Eq(EXPECTED_CHUNK_HEADER_VERSION));
+
+    EXPECT_THAT(sizeof(ChunkHeader), Eq(sizeof(ExpectedChunkHeaderLayout)));
+    EXPECT_THAT(alignof(ChunkHeader), Eq(alignof(ExpectedChunkHeaderLayout)));
+
+    // The sut is always zeroized and a single member is set to a specific value
+    // if a reinterpret cast to a ChunkHeader and access to the corresponding value
+    // results in the previously set pattern, the layout matches and the ChunkHeader
+    // did not change its ABI
+    // Unfortunately offsetof cannot be used since the members of ChunkHeader are private
+    ExpectedChunkHeaderLayout sut{};
+
+    auto zeroizeSut = [&] { std::memset(static_cast<void*>(&sut), 0, sizeof(ExpectedChunkHeaderLayout)); };
+
+    constexpr uint8_t PATTERN{42U};
+
+#define IOX_TEST_CHUNK_HEADER_MEMBER_COMPATIBILITY(member)                                                             \
+    zeroizeSut();                                                                                                      \
+    sut.member = PATTERN;                                                                                              \
+    ASSERT_TRUE((std::is_same<decltype(std::declval<ChunkHeader>().member()),                                          \
+                              decltype(ExpectedChunkHeaderLayout::member)>::value));                                   \
+    EXPECT_THAT(reinterpret_cast<ChunkHeader*>(&sut)->member(), Eq(PATTERN));
+
+    IOX_TEST_CHUNK_HEADER_MEMBER_COMPATIBILITY(chunkSize);
+    IOX_TEST_CHUNK_HEADER_MEMBER_COMPATIBILITY(chunkHeaderVersion);
+    IOX_TEST_CHUNK_HEADER_MEMBER_COMPATIBILITY(userHeaderId);
+    IOX_TEST_CHUNK_HEADER_MEMBER_COMPATIBILITY(sequenceNumber);
+    IOX_TEST_CHUNK_HEADER_MEMBER_COMPATIBILITY(userHeaderSize);
+    IOX_TEST_CHUNK_HEADER_MEMBER_COMPATIBILITY(userPayloadSize);
+    IOX_TEST_CHUNK_HEADER_MEMBER_COMPATIBILITY(userPayloadAlignment);
+
+    // special handling for originId since it is a UniquePortId
+    zeroizeSut();
+    sut.originId = PATTERN;
+    using OriginIdType = decltype(ExpectedChunkHeaderLayout::originId);
+    ASSERT_TRUE((std::is_same<decltype(std::declval<ChunkHeader>().originId())::value_type, OriginIdType>::value));
+    auto originId = static_cast<OriginIdType>(reinterpret_cast<ChunkHeader*>(&sut)->originId());
+    EXPECT_THAT(originId, Eq(PATTERN));
+
+    // special handling for userPayloadOffset since it cannot easily be accessed
+    zeroizeSut();
+    sut.userPayloadOffset = PATTERN;
+    ASSERT_TRUE((
+        std::is_same<ChunkHeader::UserPayloadOffset_t, decltype(ExpectedChunkHeaderLayout::userPayloadOffset)>::value));
+    auto userPayloadPointer = reinterpret_cast<ChunkHeader*>(&sut)->userPayload();
+    // this is a bit of a white box test but after all, all the other stuff in this test case is also white box
+    auto userPayloadOffset = reinterpret_cast<uint64_t>(userPayloadPointer) - reinterpret_cast<uint64_t>(&sut);
+    EXPECT_THAT(userPayloadOffset, Eq(static_cast<uint64_t>(PATTERN)));
+}
+
 TEST(ChunkHeader_test, ChunkHeaderUserPayloadSizeTypeIsLargeEnoughForMempoolChunk)
 {
-    using ChunkSize_t = std::result_of<decltype (&MemPool::getChunkSize)(MemPool)>::type;
+    ::testing::Test::RecordProperty("TEST_ID", "540e2e95-0890-4522-ae7f-c6d867679e0b");
+    using ChunkSize_t = iox::cxx::invoke_result<decltype(&MemPool::getChunkSize), MemPool>::type;
 
     auto maxOfChunkSizeType = std::numeric_limits<ChunkSize_t>::max();
     auto maxOfUserPayloadSizeType = std::numeric_limits<decltype(std::declval<ChunkHeader>().userPayloadSize())>::max();
@@ -74,6 +154,7 @@ TEST(ChunkHeader_test, ChunkHeaderUserPayloadSizeTypeIsLargeEnoughForMempoolChun
 
 TEST(ChunkHeader_test, UserPayloadFunctionCalledFromNonConstChunkHeaderWorks)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "d6b0fcce-8b49-429c-a1d2-c047b4b2e368");
     constexpr uint32_t CHUNK_SIZE{753U};
     constexpr uint32_t USER_PAYLOAD_SIZE{8U};
 
@@ -91,6 +172,7 @@ TEST(ChunkHeader_test, UserPayloadFunctionCalledFromNonConstChunkHeaderWorks)
 
 TEST(ChunkHeader_test, UserPayloadFunctionCalledFromConstChunkHeaderWorks)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "091451db-09ed-4aa4-bcfe-d45c0c6d6c14");
     constexpr uint32_t CHUNK_SIZE{753U};
     constexpr uint32_t USER_PAYLOAD_SIZE{8U};
 
@@ -108,18 +190,21 @@ TEST(ChunkHeader_test, UserPayloadFunctionCalledFromConstChunkHeaderWorks)
 
 TEST(ChunkHeader_test, UserPayloadFunctionCalledFromNonConstChunkHeaderReturnsNonConstType)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "8876c866-2dda-4fb4-a96b-cee7f6b5e00b");
     auto isNonConstReturn = std::is_same<decltype(std::declval<ChunkHeader>().userPayload()), void*>::value;
     EXPECT_TRUE(isNonConstReturn);
 }
 
 TEST(ChunkHeader_test, UserPayloadFunctionCalledFromConstChunkHeaderReturnsConstType)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "34957f49-06b3-426b-a0ba-df9071611fb2");
     auto isConstReturn = std::is_same<decltype(std::declval<const ChunkHeader>().userPayload()), const void*>::value;
     EXPECT_TRUE(isConstReturn);
 }
 
 TEST(ChunkHeader_test, UserHeaderFunctionCalledFromNonConstChunkHeaderWorks)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "2ddbb681-e8bb-42e0-9546-e9fd64c44be0");
     alignas(ChunkHeader) static uint8_t storage[1024 * 1024];
 
     constexpr uint32_t CHUNK_SIZE{753U};
@@ -142,6 +227,7 @@ TEST(ChunkHeader_test, UserHeaderFunctionCalledFromNonConstChunkHeaderWorks)
 
 TEST(ChunkHeader_test, UserHeaderFunctionCalledFromConstChunkHeaderWorks)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "04f902b9-0870-4ba4-b761-856e9bbfcd85");
     alignas(ChunkHeader) static uint8_t storage[1024 * 1024];
 
     constexpr uint32_t CHUNK_SIZE{753U};
@@ -165,18 +251,21 @@ TEST(ChunkHeader_test, UserHeaderFunctionCalledFromConstChunkHeaderWorks)
 
 TEST(ChunkHeader_test, UserHeaderFunctionCalledFromNonConstChunkHeaderReturnsNonConstType)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "420fc560-c309-4fc2-9224-aec70c8212cc");
     auto isNonConstReturn = std::is_same<decltype(std::declval<ChunkHeader>().userHeader()), void*>::value;
     EXPECT_TRUE(isNonConstReturn);
 }
 
 TEST(ChunkHeader_test, UserHeaderFunctionCalledFromConstChunkHeaderReturnsConstType)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "ca80c797-a22a-4d47-ba79-0f858b5d7836");
     auto isConstReturn = std::is_same<decltype(std::declval<const ChunkHeader>().userHeader()), const void*>::value;
     EXPECT_TRUE(isConstReturn);
 }
 
 TEST(ChunkHeader_test, FromUserPayloadFunctionCalledWithNullptrReturnsNullptr)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "9297471a-42ab-454c-9a10-ae2dd71e6bf9");
     constexpr void* USER_PAYLOAD{nullptr};
     auto chunkHeader = ChunkHeader::fromUserPayload(USER_PAYLOAD);
     EXPECT_THAT(chunkHeader, Eq(nullptr));
@@ -184,6 +273,7 @@ TEST(ChunkHeader_test, FromUserPayloadFunctionCalledWithNullptrReturnsNullptr)
 
 TEST(ChunkHeader_test, FromUserPayloadFunctionCalledWithConstNullptrReturnsNullptr)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "de23b1ac-6552-4613-ac66-707d22157a0c");
     constexpr const void* USER_PAYLOAD{nullptr};
     auto chunkHeader = ChunkHeader::fromUserPayload(USER_PAYLOAD);
     EXPECT_THAT(chunkHeader, Eq(nullptr));
@@ -191,6 +281,7 @@ TEST(ChunkHeader_test, FromUserPayloadFunctionCalledWithConstNullptrReturnsNullp
 
 TEST(ChunkHeader_test, FromUserPayloadFunctionCalledWithNonConstParamReturnsNonConstType)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "835d2c6e-490d-478d-a882-f51d113a73a3");
     auto isNonConstReturn =
         std::is_same<decltype(ChunkHeader::fromUserPayload(std::declval<void*>())), ChunkHeader*>::value;
     EXPECT_TRUE(isNonConstReturn);
@@ -198,13 +289,47 @@ TEST(ChunkHeader_test, FromUserPayloadFunctionCalledWithNonConstParamReturnsNonC
 
 TEST(ChunkHeader_test, FromUserPayloadFunctionCalledWithConstParamReturnsConstType)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "57ea3b52-fad4-4250-ab4d-276d5472edf1");
     auto isConstReturn =
         std::is_same<decltype(ChunkHeader::fromUserPayload(std::declval<const void*>())), const ChunkHeader*>::value;
     EXPECT_TRUE(isConstReturn);
 }
 
+TEST(ChunkHeader_test, FromUserHeaderFunctionCalledWithNullptrReturnsNullptr)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "56fc6dd9-791b-4803-bd1a-5a0b53b0875d");
+    constexpr void* USER_HEADER{nullptr};
+    auto chunkHeader = ChunkHeader::fromUserHeader(USER_HEADER);
+    EXPECT_THAT(chunkHeader, Eq(nullptr));
+}
+
+TEST(ChunkHeader_test, FromUserHeaderFunctionCalledWithConstNullptrReturnsNullptr)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "f388ae41-7102-4d35-806e-4a572890e7a0");
+    constexpr const void* USER_HEADER{nullptr};
+    auto chunkHeader = ChunkHeader::fromUserHeader(USER_HEADER);
+    EXPECT_THAT(chunkHeader, Eq(nullptr));
+}
+
+TEST(ChunkHeader_test, FromUserHeaderFunctionCalledWithNonConstParamReturnsNonConstType)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "993df4e6-2cc2-4ae1-b4d4-01a4ded65ba4");
+    auto isNonConstReturn =
+        std::is_same<decltype(ChunkHeader::fromUserHeader(std::declval<void*>())), ChunkHeader*>::value;
+    EXPECT_TRUE(isNonConstReturn);
+}
+
+TEST(ChunkHeader_test, FromUserHeaderFunctionCalledWithConstParamReturnsConstType)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "9b9a09b8-0baa-4a30-95e4-d081e01038d2");
+    auto isConstReturn =
+        std::is_same<decltype(ChunkHeader::fromUserHeader(std::declval<const void*>())), const ChunkHeader*>::value;
+    EXPECT_TRUE(isConstReturn);
+}
+
 TEST(ChunkHeader_test, UsedChunkSizeIsSizeOfChunkHeaderWhenUserPayloadIsZero)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "67d3907e-5090-4814-b726-2a37e8780395");
     constexpr uint32_t CHUNK_SIZE{2 * sizeof(ChunkHeader)};
     constexpr uint32_t USER_PAYLOAD_SIZE{0U};
 
@@ -219,6 +344,7 @@ TEST(ChunkHeader_test, UsedChunkSizeIsSizeOfChunkHeaderWhenUserPayloadIsZero)
 
 TEST(ChunkHeader_test, UsedChunkSizeIsSizeOfChunkHeaderPlusOneWhenUserPayloadIsOne)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "5a0cd3a1-3edc-441a-9ba6-486a463ad9d7");
     constexpr uint32_t CHUNK_SIZE{2 * sizeof(ChunkHeader)};
     constexpr uint32_t USER_PAYLOAD_SIZE{1U};
 
@@ -233,6 +359,7 @@ TEST(ChunkHeader_test, UsedChunkSizeIsSizeOfChunkHeaderPlusOneWhenUserPayloadIsO
 
 TEST(ChunkHeader_test, ConstructorTerminatesWhenUserPayloadSizeExceedsChunkSize)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "c8f911eb-ed0d-495a-8858-9fc45f5a06e8");
     constexpr uint32_t CHUNK_SIZE{128U};
     constexpr uint32_t USER_PAYLOAD_SIZE{2U * CHUNK_SIZE};
 
@@ -276,7 +403,7 @@ void createChunksOnMultipleAddresses(const PayloadParams& userPayloadParams,
     for (auto alignedChunkAddress = alignof(ChunkHeader); alignedChunkAddress <= MAX_USER_PAYLOAD_ALIGNMENT_FOR_TEST;
          alignedChunkAddress += alignof(ChunkHeader))
     {
-        SCOPED_TRACE(std::string("Chunk placed on address ") + std::to_string(alignedChunkAddress));
+        SCOPED_TRACE(std::string("Chunk placed on address ") + iox::cxx::convert::toString(alignedChunkAddress));
 
         auto chunkSettingsResult = ChunkSettings::create(
             userPayloadParams.size, userPayloadParams.alignment, userHeaderSize, userHeaderAlignment);
@@ -369,47 +496,55 @@ void checkConversionOfUserPayloadPointerToChunkHeader(const ChunkHeader& sut)
     EXPECT_EQ(ChunkHeader::fromUserPayload(userPayload), &sut);
 }
 
+void checkConversionOfUserHeaderPointerToChunkHeader(const ChunkHeader& sut)
+{
+    SCOPED_TRACE(std::string("Check conversion of user-Header pointer to ChunkHeader pointer"));
+    const auto userHeader = sut.userHeader();
+    EXPECT_EQ(ChunkHeader::fromUserHeader(userHeader), &sut);
+}
+
 class ChunkHeader_AlteringUserPayloadWithoutUserHeader : public ::testing::TestWithParam<PayloadParams>
 {
 };
 
 // without a user-header, the user-payload is located right after the ChunkHeader, therefore the payload size and
 // alignment parameters are made dependant on the ChunkHeader
-INSTANTIATE_TEST_CASE_P(ChunkHeader_test,
-                        ChunkHeader_AlteringUserPayloadWithoutUserHeader,
-                        ::testing::Values(
-                            // alignment = 0
-                            PayloadParams{0U, 0U},
-                            PayloadParams{1U, 0U},
-                            PayloadParams{sizeof(ChunkHeader), 0U},
-                            PayloadParams{sizeof(ChunkHeader) * 42U, 0U},
-                            // alignment = 1
-                            PayloadParams{0U, 1U},
-                            PayloadParams{1U, 1U},
-                            PayloadParams{sizeof(ChunkHeader), 1U},
-                            PayloadParams{sizeof(ChunkHeader) * 42U, 1U},
-                            // alignment = alignof(ChunkHeader) / 2
-                            PayloadParams{0U, alignof(ChunkHeader) / 2},
-                            PayloadParams{1U, alignof(ChunkHeader) / 2},
-                            PayloadParams{sizeof(ChunkHeader), alignof(ChunkHeader) / 2},
-                            PayloadParams{sizeof(ChunkHeader) * 42U, alignof(ChunkHeader) / 2},
-                            // alignment = alignof(ChunkHeader)
-                            PayloadParams{0U, alignof(ChunkHeader)},
-                            PayloadParams{1U, alignof(ChunkHeader)},
-                            PayloadParams{sizeof(ChunkHeader), alignof(ChunkHeader)},
-                            PayloadParams{sizeof(ChunkHeader) * 42U, alignof(ChunkHeader)},
-                            // alignment = alignof(ChunkHeader) * 2
-                            PayloadParams{0U, alignof(ChunkHeader) * 2},
-                            PayloadParams{1U, alignof(ChunkHeader) * 2},
-                            PayloadParams{sizeof(ChunkHeader), alignof(ChunkHeader) * 2},
-                            PayloadParams{sizeof(ChunkHeader) * 42U, alignof(ChunkHeader) * 2}));
+INSTANTIATE_TEST_SUITE_P(ChunkHeader_test,
+                         ChunkHeader_AlteringUserPayloadWithoutUserHeader,
+                         ::testing::Values(
+                             // alignment = 0
+                             PayloadParams{0U, 0U},
+                             PayloadParams{1U, 0U},
+                             PayloadParams{sizeof(ChunkHeader), 0U},
+                             PayloadParams{sizeof(ChunkHeader) * 42U, 0U},
+                             // alignment = 1
+                             PayloadParams{0U, 1U},
+                             PayloadParams{1U, 1U},
+                             PayloadParams{sizeof(ChunkHeader), 1U},
+                             PayloadParams{sizeof(ChunkHeader) * 42U, 1U},
+                             // alignment = alignof(ChunkHeader) / 2
+                             PayloadParams{0U, alignof(ChunkHeader) / 2},
+                             PayloadParams{1U, alignof(ChunkHeader) / 2},
+                             PayloadParams{sizeof(ChunkHeader), alignof(ChunkHeader) / 2},
+                             PayloadParams{sizeof(ChunkHeader) * 42U, alignof(ChunkHeader) / 2},
+                             // alignment = alignof(ChunkHeader)
+                             PayloadParams{0U, alignof(ChunkHeader)},
+                             PayloadParams{1U, alignof(ChunkHeader)},
+                             PayloadParams{sizeof(ChunkHeader), alignof(ChunkHeader)},
+                             PayloadParams{sizeof(ChunkHeader) * 42U, alignof(ChunkHeader)},
+                             // alignment = alignof(ChunkHeader) * 2
+                             PayloadParams{0U, alignof(ChunkHeader) * 2},
+                             PayloadParams{1U, alignof(ChunkHeader) * 2},
+                             PayloadParams{sizeof(ChunkHeader), alignof(ChunkHeader) * 2},
+                             PayloadParams{sizeof(ChunkHeader) * 42U, alignof(ChunkHeader) * 2}));
 
 TEST_P(ChunkHeader_AlteringUserPayloadWithoutUserHeader, CheckIntegrityOfChunkHeaderWithoutUserHeader)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "e80e27f1-de7c-4be4-a83e-9f0eb766de12");
     const auto userPayloadParams = GetParam();
 
-    SCOPED_TRACE(std::string("User-Payload: size = ") + std::to_string(userPayloadParams.size)
-                 + std::string("; alignment = ") + std::to_string(userPayloadParams.alignment));
+    SCOPED_TRACE(std::string("User-Payload: size = ") + iox::cxx::convert::toString(userPayloadParams.size)
+                 + std::string("; alignment = ") + iox::cxx::convert::toString(userPayloadParams.alignment));
 
     constexpr uint32_t USER_HEADER_SIZE{iox::CHUNK_NO_USER_HEADER_SIZE};
     constexpr uint32_t USER_HEADER_ALIGNMENT{iox::CHUNK_NO_USER_HEADER_ALIGNMENT};
@@ -431,41 +566,42 @@ class ChunkHeader_AlteringUserPayloadWithUserHeader : public ::testing::TestWith
 
 // with a user-header, the user-payload is located right after the UserPayloadOffset_t, therefore the user-payload size
 // and alignment parameters are made dependant on the UserPayloadOffset_t
-INSTANTIATE_TEST_CASE_P(ChunkHeader_test,
-                        ChunkHeader_AlteringUserPayloadWithUserHeader,
-                        ::testing::Values(
-                            // alignment = 0
-                            PayloadParams{0U, 0U},
-                            PayloadParams{1U, 0U},
-                            PayloadParams{sizeof(UserPayloadOffset_t), 0U},
-                            PayloadParams{sizeof(UserPayloadOffset_t) * 42U, 0U},
-                            // alignment = 1
-                            PayloadParams{0U, 1U},
-                            PayloadParams{1U, 1U},
-                            PayloadParams{sizeof(UserPayloadOffset_t), 1U},
-                            PayloadParams{sizeof(UserPayloadOffset_t) * 42U, 1U},
-                            // alignment = alignof(UserPayloadOffset_t) / 2
-                            PayloadParams{0U, alignof(UserPayloadOffset_t) / 2},
-                            PayloadParams{1U, alignof(UserPayloadOffset_t) / 2},
-                            PayloadParams{sizeof(UserPayloadOffset_t), alignof(UserPayloadOffset_t) / 2},
-                            PayloadParams{sizeof(UserPayloadOffset_t) * 42U, alignof(UserPayloadOffset_t) / 2},
-                            // alignment = alignof(UserPayloadOffset_t)
-                            PayloadParams{0U, alignof(UserPayloadOffset_t)},
-                            PayloadParams{1U, alignof(UserPayloadOffset_t)},
-                            PayloadParams{sizeof(UserPayloadOffset_t), alignof(UserPayloadOffset_t)},
-                            PayloadParams{sizeof(UserPayloadOffset_t) * 42U, alignof(UserPayloadOffset_t)},
-                            // alignment = alignof(UserPayloadOffset_t) * 2
-                            PayloadParams{0U, alignof(UserPayloadOffset_t) * 2},
-                            PayloadParams{1U, alignof(UserPayloadOffset_t) * 2},
-                            PayloadParams{sizeof(UserPayloadOffset_t), alignof(UserPayloadOffset_t) * 2},
-                            PayloadParams{sizeof(UserPayloadOffset_t) * 42U, alignof(UserPayloadOffset_t) * 2}));
+INSTANTIATE_TEST_SUITE_P(ChunkHeader_test,
+                         ChunkHeader_AlteringUserPayloadWithUserHeader,
+                         ::testing::Values(
+                             // alignment = 0
+                             PayloadParams{0U, 0U},
+                             PayloadParams{1U, 0U},
+                             PayloadParams{sizeof(UserPayloadOffset_t), 0U},
+                             PayloadParams{sizeof(UserPayloadOffset_t) * 42U, 0U},
+                             // alignment = 1
+                             PayloadParams{0U, 1U},
+                             PayloadParams{1U, 1U},
+                             PayloadParams{sizeof(UserPayloadOffset_t), 1U},
+                             PayloadParams{sizeof(UserPayloadOffset_t) * 42U, 1U},
+                             // alignment = alignof(UserPayloadOffset_t) / 2
+                             PayloadParams{0U, alignof(UserPayloadOffset_t) / 2},
+                             PayloadParams{1U, alignof(UserPayloadOffset_t) / 2},
+                             PayloadParams{sizeof(UserPayloadOffset_t), alignof(UserPayloadOffset_t) / 2},
+                             PayloadParams{sizeof(UserPayloadOffset_t) * 42U, alignof(UserPayloadOffset_t) / 2},
+                             // alignment = alignof(UserPayloadOffset_t)
+                             PayloadParams{0U, alignof(UserPayloadOffset_t)},
+                             PayloadParams{1U, alignof(UserPayloadOffset_t)},
+                             PayloadParams{sizeof(UserPayloadOffset_t), alignof(UserPayloadOffset_t)},
+                             PayloadParams{sizeof(UserPayloadOffset_t) * 42U, alignof(UserPayloadOffset_t)},
+                             // alignment = alignof(UserPayloadOffset_t) * 2
+                             PayloadParams{0U, alignof(UserPayloadOffset_t) * 2},
+                             PayloadParams{1U, alignof(UserPayloadOffset_t) * 2},
+                             PayloadParams{sizeof(UserPayloadOffset_t), alignof(UserPayloadOffset_t) * 2},
+                             PayloadParams{sizeof(UserPayloadOffset_t) * 42U, alignof(UserPayloadOffset_t) * 2}));
 
 TEST_P(ChunkHeader_AlteringUserPayloadWithUserHeader, CheckIntegrityOfChunkHeaderWithUserHeader)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "a0d45cb6-cf0c-44e7-b759-fdc25535c9c4");
     const auto userPayloadParams = GetParam();
 
-    SCOPED_TRACE(std::string("User-Payload: size = ") + std::to_string(userPayloadParams.size)
-                 + std::string("; alignment = ") + std::to_string(userPayloadParams.alignment));
+    SCOPED_TRACE(std::string("User-Payload: size = ") + iox::cxx::convert::toString(userPayloadParams.size)
+                 + std::string("; alignment = ") + iox::cxx::convert::toString(userPayloadParams.alignment));
 
     constexpr uint32_t SMALL_USER_HEADER{alignof(ChunkHeader)};
     static_assert(SMALL_USER_HEADER < sizeof(ChunkHeader), "For this test the size must be smaller than ChunkHeader");
@@ -474,11 +610,11 @@ TEST_P(ChunkHeader_AlteringUserPayloadWithUserHeader, CheckIntegrityOfChunkHeade
 
     for (const auto userHeaderAlignment : USER_HEADER_ALIGNMENTS)
     {
-        SCOPED_TRACE(std::string("User-Header alignment = ") + std::to_string(userHeaderAlignment));
+        SCOPED_TRACE(std::string("User-Header alignment = ") + iox::cxx::convert::toString(userHeaderAlignment));
 
         for (const auto userHeaderSize : USER_HEADER_SIZES)
         {
-            SCOPED_TRACE(std::string("User-Header size = ") + std::to_string(userHeaderSize));
+            SCOPED_TRACE(std::string("User-Header size = ") + iox::cxx::convert::toString(userHeaderSize));
 
             if (userHeaderSize < userHeaderAlignment)
             {
@@ -496,6 +632,7 @@ TEST_P(ChunkHeader_AlteringUserPayloadWithUserHeader, CheckIntegrityOfChunkHeade
                     checkUserPayloadAlignment(sut, userPayloadParams);
                     checkUsedSizeOfChunk(sut, userPayloadParams);
                     checkConversionOfUserPayloadPointerToChunkHeader(sut);
+                    checkConversionOfUserHeaderPointerToChunkHeader(sut);
                 });
         }
     }

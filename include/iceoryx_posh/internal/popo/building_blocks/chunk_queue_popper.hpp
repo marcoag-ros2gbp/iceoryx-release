@@ -17,11 +17,11 @@
 #ifndef IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_QUEUE_POPPER_HPP
 #define IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_QUEUE_POPPER_HPP
 
+#include "iceoryx_hoofs/cxx/helplets.hpp"
+#include "iceoryx_hoofs/cxx/optional.hpp"
 #include "iceoryx_posh/internal/mepoo/shared_chunk.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_queue_data.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/condition_notifier.hpp"
-#include "iceoryx_utils/cxx/helplets.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
 
 namespace iox
 {
@@ -42,9 +42,9 @@ class ChunkQueuePopper
 
     ChunkQueuePopper(const ChunkQueuePopper& other) = delete;
     ChunkQueuePopper& operator=(const ChunkQueuePopper&) = delete;
-    ChunkQueuePopper(ChunkQueuePopper&& rhs) = default;
-    ChunkQueuePopper& operator=(ChunkQueuePopper&& rhs) = default;
-    virtual ~ChunkQueuePopper() = default;
+    ChunkQueuePopper(ChunkQueuePopper&& rhs) noexcept = default;
+    ChunkQueuePopper& operator=(ChunkQueuePopper&& rhs) noexcept = default;
+    virtual ~ChunkQueuePopper() noexcept = default;
 
     /// @brief pop a chunk from the chunk queue
     /// @return optional for a shared chunk that is set if the queue is not empty

@@ -1,4 +1,5 @@
-// Copyright (c) 2019, 2020 by Robert Bosch GmbH, Apex.AI Inc. All rights reserved.
+// Copyright (c) 2019 - 2020 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2020 - 2021 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,11 +17,11 @@
 #ifndef IOX_POSH_ROUDI_ROUDI_APP_HPP
 #define IOX_POSH_ROUDI_ROUDI_APP_HPP
 
+#include "iceoryx_hoofs/log/logcommon.hpp"
+#include "iceoryx_hoofs/posix_wrapper/semaphore.hpp"
 #include "iceoryx_posh/iceoryx_posh_config.hpp"
 #include "iceoryx_posh/mepoo/mepoo_config.hpp"
 #include "iceoryx_posh/roudi/cmd_line_args.hpp"
-#include "iceoryx_utils/log/logcommon.hpp"
-#include "iceoryx_utils/posix_wrapper/semaphore.hpp"
 
 #include <cstdint>
 #include <cstdio>
@@ -52,7 +53,7 @@ class RouDiApp
     void registerSigHandler() noexcept;
 
     /// @brief waits for the next signal to RouDi daemon
-    bool waitForSignal() const noexcept;
+    bool waitForSignal() noexcept;
 
     iox::log::LogLevel m_logLevel{iox::log::LogLevel::kWarn};
     roudi::MonitoringMode m_monitoringMode{roudi::MonitoringMode::ON};

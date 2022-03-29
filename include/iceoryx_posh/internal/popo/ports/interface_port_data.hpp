@@ -17,10 +17,10 @@
 #ifndef IOX_POSH_POPO_PORTS_INTERFACE_PORT_DATA_HPP
 #define IOX_POSH_POPO_PORTS_INTERFACE_PORT_DATA_HPP
 
+#include "iceoryx_hoofs/internal/concurrent/fifo.hpp"
 #include "iceoryx_posh/capro/service_description.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
 #include "iceoryx_posh/internal/popo/ports/base_port_data.hpp"
-#include "iceoryx_utils/internal/concurrent/fifo.hpp"
 
 namespace iox
 {
@@ -28,7 +28,7 @@ namespace popo
 {
 struct InterfacePortData : public BasePortData
 {
-    InterfacePortData() = default;
+    InterfacePortData() noexcept = default;
     InterfacePortData(const RuntimeName_t& runtimeName, const capro::Interfaces interface) noexcept;
 
     concurrent::FiFo<capro::CaproMessage, MAX_INTERFACE_CAPRO_FIFO_SIZE> m_caproMessageFiFo;

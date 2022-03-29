@@ -14,13 +14,15 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "iceoryx_hoofs/log/logging.hpp"
+#include "iceoryx_hoofs/log/logstream.hpp"
+#include "iceoryx_hoofs/testing/mocks/logger_mock.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
-#include "iceoryx_utils/log/logging.hpp"
-#include "iceoryx_utils/log/logstream.hpp"
-#include "iceoryx_utils/testing/mocks/logger_mock.hpp"
 
 #include "test.hpp"
 
+namespace
+{
 using namespace ::testing;
 using namespace iox::roudi;
 
@@ -37,6 +39,7 @@ class MonitoringModeLogStreamTest : public Test
 
 TEST_F(MonitoringModeLogStreamTest, MonitoringModeOffLeadsToCorrectString)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "09670bca-f358-475e-b202-cb56c09d825a");
     auto sut = MonitoringMode::OFF;
 
     {
@@ -51,6 +54,7 @@ TEST_F(MonitoringModeLogStreamTest, MonitoringModeOffLeadsToCorrectString)
 
 TEST_F(MonitoringModeLogStreamTest, MonitoringModeOnLeadsToCorrectString)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "0747ce58-58de-449a-ac07-9bffe2b33435");
     auto sut = MonitoringMode::ON;
 
     {
@@ -62,3 +66,5 @@ TEST_F(MonitoringModeLogStreamTest, MonitoringModeOnLeadsToCorrectString)
     EXPECT_THAT(m_loggerMock.m_logs[0].message, Eq("MonitoringMode::ON"));
     EXPECT_THAT(m_loggerMock.m_logs[0].level, Eq(iox::log::LogLevel::kWarn));
 }
+
+} // namespace

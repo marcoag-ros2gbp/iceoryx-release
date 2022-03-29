@@ -1,5 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,18 +17,20 @@
 
 #include "iceoryx_posh/roudi/memory/posix_shm_memory_provider.hpp"
 
-#include "iceoryx_utils/internal/posix_wrapper/system_configuration.hpp"
+#include "iceoryx_hoofs/internal/posix_wrapper/system_configuration.hpp"
 
 #include "mocks/roudi_memory_block_mock.hpp"
 
 #include "test.hpp"
 
+namespace
+{
 using namespace ::testing;
 
 using namespace iox::roudi;
 
 using iox::ShmName_t;
-static const ShmName_t TEST_SHM_NAME = ShmName_t("/FuManchu");
+static const ShmName_t TEST_SHM_NAME = ShmName_t("FuManchu");
 
 class PosixShmMemoryProvider_Test : public Test
 {
@@ -39,7 +41,7 @@ class PosixShmMemoryProvider_Test : public Test
         IOX_DISCARD_RESULT(iox::posix::SharedMemoryObject::create(TEST_SHM_NAME,
                                                                   1024,
                                                                   iox::posix::AccessMode::READ_WRITE,
-                                                                  iox::posix::OwnerShip::MINE,
+                                                                  iox::posix::OpenMode::PURGE_AND_CREATE,
                                                                   iox::posix::SharedMemoryObject::NO_ADDRESS_HINT));
     }
 
@@ -52,7 +54,7 @@ class PosixShmMemoryProvider_Test : public Test
         return !iox::posix::SharedMemoryObject::create(TEST_SHM_NAME,
                                                        8,
                                                        iox::posix::AccessMode::READ_ONLY,
-                                                       iox::posix::OwnerShip::OPEN_EXISTING,
+                                                       iox::posix::OpenMode::OPEN_EXISTING,
                                                        iox::posix::SharedMemoryObject::NO_ADDRESS_HINT)
                     .has_error();
     }
@@ -63,32 +65,36 @@ class PosixShmMemoryProvider_Test : public Test
 
 TEST_F(PosixShmMemoryProvider_Test, CreateMemory)
 {
-    PosixShmMemoryProvider sut(TEST_SHM_NAME, iox::posix::AccessMode::READ_WRITE, iox::posix::OwnerShip::MINE);
+    ::testing::Test::RecordProperty("TEST_ID", "9808f2a5-4cd3-49fe-9a19-6e747183141d");
+    PosixShmMemoryProvider sut(
+        TEST_SHM_NAME, iox::posix::AccessMode::READ_WRITE, iox::posix::OpenMode::PURGE_AND_CREATE);
     ASSERT_FALSE(sut.addMemoryBlock(&memoryBlock1).has_error());
     uint64_t MEMORY_SIZE{16};
     uint64_t MEMORY_ALIGNMENT{8};
-    EXPECT_CALL(memoryBlock1, sizeMock()).WillRepeatedly(Return(MEMORY_SIZE));
-    EXPECT_CALL(memoryBlock1, alignmentMock()).WillRepeatedly(Return(MEMORY_ALIGNMENT));
+    EXPECT_CALL(memoryBlock1, size()).WillRepeatedly(Return(MEMORY_SIZE));
+    EXPECT_CALL(memoryBlock1, alignment()).WillRepeatedly(Return(MEMORY_ALIGNMENT));
 
     EXPECT_THAT(sut.create().has_error(), Eq(false));
 
     EXPECT_THAT(shmExists(), Eq(true));
 
-    EXPECT_CALL(memoryBlock1, destroyMock());
+    EXPECT_CALL(memoryBlock1, destroy());
 }
 
 TEST_F(PosixShmMemoryProvider_Test, DestroyMemory)
 {
-    PosixShmMemoryProvider sut(TEST_SHM_NAME, iox::posix::AccessMode::READ_WRITE, iox::posix::OwnerShip::MINE);
+    ::testing::Test::RecordProperty("TEST_ID", "f864b99c-373d-4954-ac8b-61acc3c9c555");
+    PosixShmMemoryProvider sut(
+        TEST_SHM_NAME, iox::posix::AccessMode::READ_WRITE, iox::posix::OpenMode::PURGE_AND_CREATE);
     ASSERT_FALSE(sut.addMemoryBlock(&memoryBlock1).has_error());
     uint64_t MEMORY_SIZE{16};
     uint64_t MEMORY_ALIGNMENT{8};
-    EXPECT_CALL(memoryBlock1, sizeMock()).WillRepeatedly(Return(MEMORY_SIZE));
-    EXPECT_CALL(memoryBlock1, alignmentMock()).WillRepeatedly(Return(MEMORY_ALIGNMENT));
+    EXPECT_CALL(memoryBlock1, size()).WillRepeatedly(Return(MEMORY_SIZE));
+    EXPECT_CALL(memoryBlock1, alignment()).WillRepeatedly(Return(MEMORY_ALIGNMENT));
 
     ASSERT_FALSE(sut.create().has_error());
 
-    EXPECT_CALL(memoryBlock1, destroyMock());
+    EXPECT_CALL(memoryBlock1, destroy());
 
     ASSERT_FALSE(sut.destroy().has_error());
 
@@ -97,12 +103,14 @@ TEST_F(PosixShmMemoryProvider_Test, DestroyMemory)
 
 TEST_F(PosixShmMemoryProvider_Test, CreationFailedWithAlignmentExceedingPageSize)
 {
-    PosixShmMemoryProvider sut(TEST_SHM_NAME, iox::posix::AccessMode::READ_WRITE, iox::posix::OwnerShip::MINE);
+    ::testing::Test::RecordProperty("TEST_ID", "6614de7e-0f4c-48ea-bd3c-dd500fa231f2");
+    PosixShmMemoryProvider sut(
+        TEST_SHM_NAME, iox::posix::AccessMode::READ_WRITE, iox::posix::OpenMode::PURGE_AND_CREATE);
     ASSERT_FALSE(sut.addMemoryBlock(&memoryBlock1).has_error());
     uint64_t MEMORY_SIZE{16};
-    uint64_t MEMORY_ALIGNMENT{iox::posix::pageSize().value_or(iox::posix::MaxPageSize) + 8};
-    EXPECT_CALL(memoryBlock1, sizeMock()).WillRepeatedly(Return(MEMORY_SIZE));
-    EXPECT_CALL(memoryBlock1, alignmentMock()).WillRepeatedly(Return(MEMORY_ALIGNMENT));
+    uint64_t MEMORY_ALIGNMENT{iox::posix::pageSize() + 8U};
+    EXPECT_CALL(memoryBlock1, size()).WillRepeatedly(Return(MEMORY_SIZE));
+    EXPECT_CALL(memoryBlock1, alignment()).WillRepeatedly(Return(MEMORY_ALIGNMENT));
 
     auto expectFailed = sut.create();
     ASSERT_THAT(expectFailed.has_error(), Eq(true));
@@ -110,3 +118,5 @@ TEST_F(PosixShmMemoryProvider_Test, CreationFailedWithAlignmentExceedingPageSize
 
     EXPECT_THAT(shmExists(), Eq(false));
 }
+
+} // namespace
