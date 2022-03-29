@@ -14,7 +14,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 
 ## please add new entries alphabetically sorted
 option(BINDING_C "Builds the C language bindings" ON)
@@ -27,6 +27,7 @@ option(CCACHE "Use ccache when it's available" ON)
 option(CLANG_TIDY "Execute Clang-Tidy" OFF)
 option(COVERAGE "Build iceoryx with gcov flags" OFF)
 option(DDS_GATEWAY "Builds the iceoryx dds gateway - enables internode communication via dds" OFF)
+option(DOWNLOAD_TOML_LIB "Download cpptoml via the CMake ExternalProject module" ON)
 option(EXAMPLES "Build all iceoryx examples" OFF)
 option(INTROSPECTION "Builds the introspection client which requires the ncurses library with an activated terminfo feature" OFF)
 option(ONE_TO_MANY_ONLY "Restricts communication to 1:n pattern" OFF)
@@ -39,14 +40,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # "Create compile_commands.json file"
 
 if(BUILD_ALL)
   set(EXAMPLES ON)
-  set(INTROSPECTION ON)
   set(BUILD_TEST ON)
   set(INTROSPECTION ON)
   set(BINDING_C ON)
   set(DDS_GATEWAY ON)
 endif()
 
-## must be before the BUILD_TEST check 
+## must be before the BUILD_TEST check
 if(COVERAGE AND NOT BUILD_TEST)
   set(BUILD_TEST ON)
   set(BUILD_TEST_HINT "${BUILD_TEST_HINT} (activated by COVERAGE=ON)")
@@ -84,6 +84,7 @@ function(show_config_options)
   message("          CLANG_TIDY...........................: " ${CLANG_TIDY})
   message("          COVERAGE.............................: " ${COVERAGE})
   message("          DDS_GATEWAY..........................: " ${DDS_GATEWAY})
+  message("          DOWNLOAD_TOML_LIB....................: " ${DOWNLOAD_TOML_LIB})
   message("          EXAMPLES.............................: " ${EXAMPLES})
   message("          INTROSPECTION........................: " ${INTROSPECTION})
   message("          ONE_TO_MANY_ONLY ....................: " ${ONE_TO_MANY_ONLY})

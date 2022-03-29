@@ -21,6 +21,8 @@
 
 #include <chrono>
 
+namespace
+{
 using namespace ::testing;
 using namespace iox;
 using namespace iox::posix;
@@ -39,8 +41,8 @@ class IpcInterfaceCreator_test : public Test
   public:
     void SetUp()
     {
-        EXPECT_FALSE(IpcChannelType::unlinkIfExists(goodName).has_error());
-        EXPECT_FALSE(IpcChannelType::unlinkIfExists(anotherGoodName).has_error());
+        EXPECT_FALSE(platform::IoxIpcChannelType::unlinkIfExists(goodName).has_error());
+        EXPECT_FALSE(platform::IoxIpcChannelType::unlinkIfExists(anotherGoodName).has_error());
     }
 
     void TearDown()
@@ -54,6 +56,7 @@ class IpcInterfaceCreator_test : public Test
 
 TEST_F(IpcInterfaceCreator_test, CreateWithDifferentNameWorks)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "4fc22f1f-1333-41a1-8709-4b1ca791a2e1");
     IpcInterfaceCreator m_sut{goodName};
     IpcInterfaceCreator m_sut2{anotherGoodName};
     EXPECT_TRUE(m_sut.isInitialized());
@@ -62,8 +65,11 @@ TEST_F(IpcInterfaceCreator_test, CreateWithDifferentNameWorks)
 
 TEST_F(IpcInterfaceCreator_test, CreateWithSameNameLeadsToError)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "2e8c15c8-1b7b-465b-aae5-6db24fc3c34a");
     IpcInterfaceCreator m_sut{goodName};
     EXPECT_DEATH({ IpcInterfaceCreator m_sut2{goodName}; }, ".*");
 }
+
+} // namespace
 
 #endif

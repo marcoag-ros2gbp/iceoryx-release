@@ -1,4 +1,4 @@
-# Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
+# Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License"); you may not
 # use this file except in compliance with the License. You may obtain a copy of
@@ -14,7 +14,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(iceoryx_integrationtest)
 
 find_package(ament_cmake REQUIRED)
@@ -32,6 +32,16 @@ if(BUILD_TESTING)
   add_ros_test(iceoryx_integrationtest/test_waitset_example.py)
   add_ros_test(iceoryx_integrationtest/test_waitset_in_c_example.py)
   add_ros_test(iceoryx_integrationtest/test_iceoptions_example.py)
+  add_ros_test(iceoryx_integrationtest/test_complexdata_example.py)
+  add_ros_test(iceoryx_integrationtest/test_user_header_example.py)
+  add_ros_test(iceoryx_integrationtest/test_icediscovery_example.py)
+  add_ros_test(iceoryx_integrationtest/test_icediscovery_monitoring.py)
+  add_ros_test(iceoryx_integrationtest/test_request_response_in_c_basic.py)
+  add_ros_test(iceoryx_integrationtest/test_request_response_in_c_listener_and_waitset.py)
+  add_ros_test(iceoryx_integrationtest/test_request_response_basic.py)
+  add_ros_test(iceoryx_integrationtest/test_request_response_listener.py)
+  add_ros_test(iceoryx_integrationtest/test_request_response_untyped.py)
+  add_ros_test(iceoryx_integrationtest/test_icediscovery_in_c_example.py)
 
 endif()
 

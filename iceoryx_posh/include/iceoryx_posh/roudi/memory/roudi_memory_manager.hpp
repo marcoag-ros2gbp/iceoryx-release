@@ -23,9 +23,9 @@
 #include "iceoryx_posh/internal/roudi/memory/port_pool_memory_block.hpp"
 #include "iceoryx_posh/roudi/memory/posix_shm_memory_provider.hpp"
 
-#include "iceoryx_utils/cxx/expected.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
-#include "iceoryx_utils/cxx/vector.hpp"
+#include "iceoryx_hoofs/cxx/expected.hpp"
+#include "iceoryx_hoofs/cxx/optional.hpp"
+#include "iceoryx_hoofs/cxx/vector.hpp"
 
 #include <cstdint>
 
@@ -37,7 +37,6 @@ class MemoryProvider;
 
 enum class RouDiMemoryManagerError
 {
-    INVALID_STATE,
     /// attempt to add more memory provider than the capacity allows
     MEMORY_PROVIDER_EXHAUSTED,
     /// an action was performed which requires memory provider
@@ -48,7 +47,7 @@ enum class RouDiMemoryManagerError
     MEMORY_DESTRUCTION_FAILED,
 };
 
-iox::log::LogStream& operator<<(iox::log::LogStream& logstream, const RouDiMemoryManagerError& error);
+iox::log::LogStream& operator<<(iox::log::LogStream& logstream, const RouDiMemoryManagerError& error) noexcept;
 
 class RouDiMemoryManager
 {
@@ -79,7 +78,7 @@ class RouDiMemoryManager
     cxx::expected<RouDiMemoryManagerError> destroyMemory() noexcept;
 
   private:
-    mepoo::MePooConfig introspectionMemPoolConfig() const;
+    mepoo::MePooConfig introspectionMemPoolConfig() const noexcept;
     cxx::vector<MemoryProvider*, MAX_NUMBER_OF_MEMORY_PROVIDER> m_memoryProvider;
 };
 } // namespace roudi

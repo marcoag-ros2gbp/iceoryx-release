@@ -14,28 +14,30 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 
+#include "iceoryx_hoofs/cxx/optional.hpp"
+#include "iceoryx_hoofs/posix_wrapper/signal_handler.hpp"
 #include "iceoryx_posh/popo/subscriber.hpp"
 #include "iceoryx_posh/popo/user_trigger.hpp"
 #include "iceoryx_posh/popo/wait_set.hpp"
 #include "iceoryx_posh/runtime/posh_runtime.hpp"
-#include "iceoryx_utils/cxx/optional.hpp"
-#include "iceoryx_utils/posix_wrapper/signal_handler.hpp"
 #include "topic_data.hpp"
 
 #include <atomic>
 #include <iostream>
 
-std::atomic_bool shutdown{false};
+//! [sig handler]
+std::atomic_bool keepRunning{true};
 iox::cxx::optional<iox::popo::WaitSet<>> waitset;
 
 static void sigHandler(int sig IOX_MAYBE_UNUSED)
 {
-    shutdown = true;
+    keepRunning = false;
     if (waitset)
     {
         waitset->markForDestruction();
     }
 }
+//! [sig handler]
 
 int main()
 {
@@ -43,6 +45,7 @@ int main()
     iox::runtime::PoshRuntime::initRuntime("iox-cpp-waitset-basic");
 
     // create waitset inside of the optional
+    //! [create waitset]
     waitset.emplace();
 
     // register signal handler to handle termination of the loop
@@ -57,8 +60,10 @@ int main()
         std::cerr << "failed to attach subscriber" << std::endl;
         std::exit(EXIT_FAILURE);
     });
+    //! [create waitset]
 
-    while (!shutdown.load())
+    //! [mainloop]
+    while (keepRunning)
     {
         // We block and wait for samples to arrive.
         auto notificationVector = waitset->wait();
@@ -76,9 +81,8 @@ int main()
                 // Consume a sample
                 subscriber.take()
                     .and_then([](auto& sample) { std::cout << " got value: " << sample->counter << std::endl; })
-                    .or_else([](auto& reason
-                                    IOX_MAYBE_UNUSED) { /* we could check and handle the reason why there is no data */
-                                                        std::cout << "got no data" << std::endl;
+                    .or_else([](auto& reason) {
+                        std::cout << "got no data, return code: " << static_cast<uint64_t>(reason) << std::endl;
                     });
                 // We could consume all samples but do not need to.
                 // If there is more than one sample we will wake up again since the state of the subscriber is still
@@ -86,8 +90,10 @@ int main()
             }
         }
     }
+    //! [mainloop]
 
     std::cout << "shutting down" << std::endl;
 
+    waitset.reset();
     return (EXIT_SUCCESS);
 }

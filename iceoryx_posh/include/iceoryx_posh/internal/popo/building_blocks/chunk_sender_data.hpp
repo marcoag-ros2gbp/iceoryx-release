@@ -17,13 +17,13 @@
 #ifndef IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_SENDER_DATA_HPP
 #define IOX_POSH_POPO_BUILDING_BLOCKS_CHUNK_SENDER_DATA_HPP
 
+#include "iceoryx_hoofs/cxx/helplets.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
 #include "iceoryx_posh/internal/mepoo/memory_manager.hpp"
 #include "iceoryx_posh/internal/mepoo/shm_safe_unmanaged_chunk.hpp"
 #include "iceoryx_posh/internal/popo/building_blocks/chunk_distributor_data.hpp"
 #include "iceoryx_posh/internal/popo/used_chunk_list.hpp"
 #include "iceoryx_posh/mepoo/memory_info.hpp"
-#include "iceoryx_utils/cxx/helplets.hpp"
 
 namespace iox
 {
@@ -33,7 +33,7 @@ template <uint32_t MaxChunksAllocatedSimultaneously, typename ChunkDistributorDa
 struct ChunkSenderData : public ChunkDistributorDataType
 {
     explicit ChunkSenderData(cxx::not_null<mepoo::MemoryManager* const> memoryManager,
-                             const SubscriberTooSlowPolicy subscriberTooSlowPolicy,
+                             const ConsumerTooSlowPolicy consumerTooSlowPolicy,
                              const uint64_t historyCapacity = 0U,
                              const mepoo::MemoryInfo& memoryInfo = mepoo::MemoryInfo()) noexcept;
 

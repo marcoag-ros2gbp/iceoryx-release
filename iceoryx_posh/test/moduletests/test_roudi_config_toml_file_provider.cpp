@@ -1,4 +1,5 @@
 // Copyright (c) 2021 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2021 by Apex.AI. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +20,11 @@
 #include "iceoryx/tests/posh/moduletests/test_input_path.hpp"
 #include "test.hpp"
 
-using namespace ::testing;
-
 namespace
 {
+using namespace ::testing;
+
 using ParseErrorInputFile_t = std::pair<iox::roudi::RouDiConfigFileParseError, iox::roudi::ConfigFilePathString_t>;
-};
 
 class RoudiConfigTomlFileProvider_test : public TestWithParam<ParseErrorInputFile_t>
 {
@@ -44,6 +44,7 @@ class RoudiConfigTomlFileProvider_test : public TestWithParam<ParseErrorInputFil
 
 TEST_F(RoudiConfigTomlFileProvider_test, ParseDefaultConfigIsSuccessful)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "37a5ad49-1af2-4e4e-a1ba-85826589d560");
     iox::roudi::ConfigFilePathString_t emptyConfigFilePath;
     m_cmdLineArgs.configFilePath = emptyConfigFilePath;
 
@@ -54,10 +55,7 @@ TEST_F(RoudiConfigTomlFileProvider_test, ParseDefaultConfigIsSuccessful)
     EXPECT_FALSE(result.has_error());
 }
 
-/// we require INSTANTIATE_TEST_CASE_P since we support gtest 1.8 for our safety targets
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     ParseAllMalformedInputConfigFiles,
     RoudiConfigTomlFileProvider_test,
     Values(ParseErrorInputFile_t{iox::roudi::RouDiConfigFileParseError::NO_GENERAL_SECTION,
@@ -78,10 +76,11 @@ INSTANTIATE_TEST_CASE_P(
                                  "roudi_config_error_mempool_without_chunk_count.toml"},
            ParseErrorInputFile_t{iox::roudi::RouDiConfigFileParseError::EXCEPTION_IN_PARSER,
                                  "toml_parser_exception.toml"}));
-#pragma GCC diagnostic pop
+
 
 TEST_P(RoudiConfigTomlFileProvider_test, ParseMalformedInputFileCausesError)
 {
+    ::testing::Test::RecordProperty("TEST_ID", "a49e2732-df35-4e4d-b312-bb8b9b9fef52");
     const auto parseErrorInputFile = GetParam();
 
     m_cmdLineArgs.configFilePath.append(iox::cxx::TruncateToCapacity, parseErrorInputFile.second);
@@ -93,3 +92,5 @@ TEST_P(RoudiConfigTomlFileProvider_test, ParseMalformedInputFileCausesError)
     ASSERT_TRUE(result.has_error());
     EXPECT_EQ(parseErrorInputFile.first, result.get_error());
 }
+
+} // namespace

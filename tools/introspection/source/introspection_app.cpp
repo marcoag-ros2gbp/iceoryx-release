@@ -16,10 +16,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "iceoryx_introspection/introspection_app.hpp"
+#include "iceoryx_hoofs/internal/units/duration.hpp"
 #include "iceoryx_introspection/introspection_types.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
 #include "iceoryx_posh/runtime/posh_runtime.hpp"
-#include "iceoryx_utils/internal/units/duration.hpp"
 #include "iceoryx_versions.hpp"
 
 #include <chrono>
@@ -226,7 +226,7 @@ void IntrospectionApp::waitForUserInput(int32_t timeoutMs)
     fileDesc.fd = STDIN_FILENO;
     fileDesc.events = POLLIN;
     constexpr size_t nFileDesc = 1u;
-    /// @todo Wrap kernel calls with SmartC
+    /// @todo Wrap kernel calls with posixCall
     int32_t eventCount = poll(&fileDesc, nFileDesc, timeoutMs);
 
     // Event detected
@@ -240,7 +240,7 @@ void IntrospectionApp::waitForUserInput(int32_t timeoutMs)
 void IntrospectionApp::prettyPrint(const std::string& str, const PrettyOptions pr)
 {
     wattron(pad, prettyMap.find(pr)->second);
-    wprintw(pad, str.c_str());
+    wprintw(pad, "%s", str.c_str());
     wattroff(pad, prettyMap.find(pr)->second);
 }
 
@@ -288,7 +288,7 @@ void IntrospectionApp::printMemPoolInfo(const MemPoolIntrospectionInfo& introspe
         auto& info = introspectionInfo.m_mempoolInfo[i];
         if (info.m_numChunks > 0u)
         {
-            wprintw(pad, "%*d |", memPoolWidth, i + 1u);
+            wprintw(pad, "%*zd |", memPoolWidth, i + 1u);
             wprintw(pad, "%*d |", usedchunksWidth, info.m_usedChunks);
             wprintw(pad, "%*d |", numchunksWidth, info.m_numChunks);
             wprintw(pad, "%*d |", minFreechunksWidth, info.m_minFreeChunks);

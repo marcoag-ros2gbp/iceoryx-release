@@ -1,5 +1,5 @@
 # Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-# Copyright (c) 2020 - 2021 by Apex.AI Inc. All rights reserved.
+# Copyright (c) 2020 - 2022 by Apex.AI Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,34 +14,52 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 
-set(IOX_VERSION_STRING "1.0.2")
+set(IOX_VERSION_STRING "2.0.0")
 
 project(iceoryx_posh VERSION ${IOX_VERSION_STRING})
 
 find_package(Threads REQUIRED)
-find_package(iceoryx_utils REQUIRED)
+find_package(iceoryx_hoofs REQUIRED)
 
+option(DOWNLOAD_TOML_LIB "Download cpptoml via the CMake ExternalProject module" ON)
 option(TOML_CONFIG "TOML support for RouDi with dynamic configuration" ON)
 option(ONE_TO_MANY_ONLY "Restricts communication to 1:n pattern" OFF)
 
 if(TOML_CONFIG)
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpptoml/ ${CMAKE_BINARY_DIR}/dependencies/posh/cpptoml/prebuild)
+    if (DOWNLOAD_TOML_LIB)
+        add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/cmake/cpptoml/ ${CMAKE_BINARY_DIR}/dependencies/posh/cpptoml/prebuild)
+    endif()
 
     find_package(cpptoml REQUIRED)
 endif()
 
-include(cmake/iceoryxversions.cmake)
 include(IceoryxPackageHelper)
 include(IceoryxPlatform)
 
-include(cmake/iceoryx_posh_deployment.cmake)
+include(cmake/IceoryxPoshDeployment.cmake)
 
 if(CMAKE_SYSTEM_NAME MATCHES Linux OR CMAKE_SYSTEM_NAME MATCHES Darwin)
     option(BUILD_SHARED_LIBS "Create shared libraries by default" ON)
 endif()
 
+option(MAKE_UNIQUE_INCLUDEDIR
+  "When ON headers are installed to a path ending with folders called \
+  iceoryx/vX.Y.Z/ . This avoids include directory search order issues when \
+  overriding this package from a merged catkin, ament, or colcon workspace."
+  ON)
+
+if(MAKE_UNIQUE_INCLUDEDIR)
+  set(_unique_dir "iceoryx/v${IOX_VERSION_STRING}")
+  if(PREFIX STREQUAL "")
+    set(PREFIX "${_unique_dir}")
+  else()
+    set(PREFIX "${PREFIX}/${_unique_dir}")
+  endif()
+endif()
+
+include(cmake/iceoryxversions.cmake)
 
 if(CLANG_TIDY)
     find_program(
@@ -77,7 +95,7 @@ set(${PROJECT_NAME}_DIR ${CMAKE_CURRENT_LIST_DIR}/cmake
 #
 ########## posh core lib ##########
 #
-add_library(iceoryx_posh
+add_library(iceoryx_posh # @todo iox-#590 Rename this to iceoryx_posh_core
     source/log/posh_logging.cpp
     source/capro/capro_message.cpp
     source/capro/service_description.cpp
@@ -95,8 +113,6 @@ add_library(iceoryx_posh
     source/mepoo/memory_info.cpp
     source/popo/ports/interface_port.cpp
     source/popo/ports/interface_port_data.cpp
-    source/popo/ports/application_port.cpp
-    source/popo/ports/application_port_data.cpp
     source/popo/ports/base_port_data.cpp
     source/popo/ports/base_port.cpp
     source/popo/ports/publisher_port_data.cpp
@@ -117,9 +133,14 @@ add_library(iceoryx_posh
     source/popo/building_blocks/condition_notifier.cpp
     source/popo/building_blocks/condition_variable_data.cpp
     source/popo/building_blocks/locking_policy.cpp
-    source/popo/building_blocks/typed_unique_id.cpp
+    source/popo/building_blocks/unique_port_id.cpp
+    source/popo/client_options.cpp
     source/popo/listener.cpp
     source/popo/notification_info.cpp
+    source/popo/rpc_header.cpp
+    source/popo/publisher_options.cpp
+    source/popo/server_options.cpp
+    source/popo/subscriber_options.cpp
     source/popo/trigger.cpp
     source/popo/trigger_handle.cpp
     source/popo/user_trigger.cpp
@@ -130,15 +151,19 @@ add_library(iceoryx_posh
     source/runtime/ipc_runtime_interface.cpp
     source/runtime/ipc_message.cpp
     source/runtime/port_config_info.cpp
-    source/runtime/posh_runtime.cpp
-    source/runtime/posh_runtime_single_process.cpp
+    source/runtime/posh_runtime.cpp                #
+    source/runtime/posh_runtime_impl.cpp           # @todo iox-#590 These files should go into a separate library iceoryx_posh_runtime
+    source/runtime/posh_runtime_single_process.cpp #
+    source/runtime/service_discovery.cpp           #
     source/runtime/node.cpp
     source/runtime/node_data.cpp
     source/runtime/node_property.cpp
     source/runtime/shared_memory_user.cpp
+    source/roudi/service_registry.cpp              # @todo iox-#415 Move the service registry into runtime namespace?
 )
 
-add_library(${PROJECT_NAMESPACE}::iceoryx_posh ALIAS iceoryx_posh)
+add_library(${PROJECT_NAMESPACE}::iceoryx_posh ALIAS iceoryx_posh) # @todo iox-#590 Name of iceoryx_posh should stay to be backwards compatible
+                                                                   # and include both iceoryx_posh_core and iceoryx_posh_runtime
 
 set_target_properties(iceoryx_posh PROPERTIES
     CXX_STANDARD_REQUIRED ON
@@ -168,7 +193,7 @@ target_include_directories(iceoryx_posh
 )
 target_link_libraries(iceoryx_posh
     PUBLIC
-    iceoryx_utils::iceoryx_utils
+    iceoryx_hoofs::iceoryx_hoofs
     PRIVATE
     ${ICEORYX_SANITIZER_FLAGS}
     ${CMAKE_THREAD_LIBS_INIT}
@@ -181,8 +206,9 @@ if(LINUX)
 elseif(QNX)
 elseif(APPLE)
 elseif(WIN32)
+elseif(UNIX)
 else()
-    message(WARNING "Could not detect supported platform, but I'm feeling lucky today." )
+    message(WARNING "Could not detect supported platform, but I'm feeling lucky today. Maybe its Unix." )
 endif()
 
 install(
@@ -221,7 +247,7 @@ target_include_directories(iceoryx_posh_gateway
 
 target_link_libraries(iceoryx_posh_gateway
     PUBLIC
-    iceoryx_utils::iceoryx_utils
+    iceoryx_hoofs::iceoryx_hoofs
     iceoryx_posh::iceoryx_posh
     PRIVATE
     ${ICEORYX_SANITIZER_FLAGS}
@@ -250,7 +276,6 @@ add_library(iceoryx_posh_roudi
     source/roudi/roudi.cpp
     source/roudi/process.cpp
     source/roudi/process_manager.cpp
-    source/roudi/service_registry.cpp
     source/roudi/iceoryx_roudi_components.cpp
     source/roudi/roudi_cmd_line_parser.cpp
     source/roudi/roudi_cmd_line_parser_config_file_option.cpp
@@ -282,10 +307,10 @@ target_include_directories(iceoryx_posh_roudi PRIVATE
 
 target_link_libraries(iceoryx_posh_roudi
     PUBLIC
-    ${PROJECT_NAMESPACE}::iceoryx_posh     # because of roudi.hpp
+    ${PROJECT_NAMESPACE}::iceoryx_posh     # @todo iox-#590 Only link against iceoryx_posh_core
     PRIVATE
     ${ICEORYX_SANITIZER_FLAGS}
-    iceoryx_utils::iceoryx_utils
+    iceoryx_hoofs::iceoryx_hoofs
 )
 
 if(CMAKE_SYSTEM_NAME MATCHES QNX)
@@ -323,7 +348,7 @@ if(TOML_CONFIG)
 
     target_link_libraries(iceoryx_posh_config PRIVATE
         iceoryx_posh::iceoryx_posh
-        iceoryx_utils::iceoryx_utils
+        iceoryx_hoofs::iceoryx_hoofs
         iceoryx_posh::iceoryx_posh_roudi
         cpptoml
         ${ICEORYX_SANITIZER_FLAGS}
@@ -352,7 +377,7 @@ if(TOML_CONFIG)
 
     target_link_libraries(iox-roudi
         PRIVATE
-        iceoryx_utils::iceoryx_utils
+        iceoryx_hoofs::iceoryx_hoofs
         ${PROJECT_NAMESPACE}::iceoryx_posh_roudi
         ${PROJECT_NAMESPACE}::iceoryx_posh_config
     )
@@ -385,10 +410,20 @@ setup_install_directories_and_export_package(
     INCLUDE_DIRECTORY include/
 )
 
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/cmake/iceoryx_posh_deployment.hpp.in"
+  "${CMAKE_BINARY_DIR}/generated/iceoryx/include/iceoryx_posh/iceoryx_posh_deployment.hpp" @ONLY)
+
 install(
     FILES ${CMAKE_BINARY_DIR}/generated/iceoryx/include/${PROJECT_NAME}/iceoryx_posh_deployment.hpp
     DESTINATION include/${PREFIX}/${PROJECT_NAME}/
     COMPONENT dev
+)
+
+# install deployment file to make posh config accessible by other packages
+install(
+    FILES
+        cmake/IceoryxPoshDeployment.cmake
+    DESTINATION ${DESTINATION_CONFIGDIR}
 )
 
 if(ROUDI_ENVIRONMENT OR BUILD_TEST)
@@ -396,7 +431,7 @@ if(ROUDI_ENVIRONMENT OR BUILD_TEST)
     ######### posh roudi environment ##########
     #
     setup_package_name_and_create_files(
-        NAME ${PROJECT_NAME}_roudi_environment
+        NAME ${PROJECT_NAME}_testing
         NAMESPACE iceoryx_posh_testing
         PROJECT_PREFIX ${PREFIX}
     )
@@ -423,7 +458,7 @@ if(ROUDI_ENVIRONMENT OR BUILD_TEST)
     target_link_libraries(iceoryx_posh_testing
         PRIVATE
         iceoryx_posh::iceoryx_posh
-        iceoryx_utils::iceoryx_utils
+        iceoryx_hoofs::iceoryx_hoofs
         iceoryx_posh::iceoryx_posh_roudi
     )
 

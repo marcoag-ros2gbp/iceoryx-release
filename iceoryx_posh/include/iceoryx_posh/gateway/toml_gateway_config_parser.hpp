@@ -1,4 +1,4 @@
-// Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2020 - 2021 by Robert Bosch GmbH. All rights reserved.
 // Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,9 +18,9 @@
 #ifndef IOX_POSH_GW_TOML_FILE_CONFIG_PARSER_HPP
 #define IOX_POSH_GW_TOML_FILE_CONFIG_PARSER_HPP
 
+#include "iceoryx_hoofs/cxx/expected.hpp"
 #include "iceoryx_posh/gateway/gateway_config.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
-#include "iceoryx_utils/cxx/expected.hpp"
 
 #include <cpptoml.h>
 
@@ -30,20 +30,20 @@ namespace config
 {
 enum TomlGatewayConfigParseError
 {
-    INVALID_STATE,
     FILE_NOT_FOUND,
     INCOMPLETE_CONFIGURATION,
     INCOMPLETE_SERVICE_DESCRIPTION,
     INVALID_SERVICE_DESCRIPTION,
-    EXCEPTION_IN_PARSER
+    EXCEPTION_IN_PARSER,
+    MAXIMUM_NUMBER_OF_ENTRIES_EXCEEDED
 };
 
-constexpr char TOML_GATEWAY_CONFIG_FILE_PARSE_ERROR_STRINGS[][64] = {"INVALID_STATE",
-                                                                     "FILE_NOT_FOUND",
-                                                                     "INCOMPLETE_CONFIGURATION",
-                                                                     "INCOMPLETE_SERVICE_DESCRIPTION",
-                                                                     "INVALID_SERVICE_DESCRIPTION",
-                                                                     "EXCEPTION_IN_PARSER"};
+constexpr const char* TOML_GATEWAY_CONFIG_FILE_PARSE_ERROR_STRINGS[] = {"FILE_NOT_FOUND",
+                                                                        "INCOMPLETE_CONFIGURATION",
+                                                                        "INCOMPLETE_SERVICE_DESCRIPTION",
+                                                                        "INVALID_SERVICE_DESCRIPTION",
+                                                                        "EXCEPTION_IN_PARSER",
+                                                                        "MAXIMUM_NUMBER_OF_ENTRIES_EXCEEDED"};
 
 static constexpr const char REGEX_VALID_CHARACTERS[] = "^[a-zA-Z_][a-zA-Z0-9_]*$";
 
@@ -59,8 +59,8 @@ static constexpr const char GATEWAY_CONFIG_SERVICE_EVENT_NAME[] = "event";
 class TomlGatewayConfigParser
 {
   public:
-    static cxx::expected<GatewayConfig, TomlGatewayConfigParseError> parse();
-    static cxx::expected<GatewayConfig, TomlGatewayConfigParseError> parse(const roudi::ConfigFilePathString_t& path);
+    static cxx::expected<GatewayConfig, TomlGatewayConfigParseError>
+    parse(const roudi::ConfigFilePathString_t& path = roudi::ConfigFilePathString_t(DEFAULT_CONFIG_FILE_PATH)) noexcept;
 
   protected:
     static cxx::expected<TomlGatewayConfigParseError> validate(const cpptoml::table& parsedToml) noexcept;

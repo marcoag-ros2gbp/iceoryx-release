@@ -1,5 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2020 - 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2020 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ void iox_pub_options_init(iox_pub_options_t* options)
     options->historyCapacity = publisherOptions.historyCapacity;
     options->nodeName = nullptr;
     options->offerOnCreate = publisherOptions.offerOnCreate;
-    options->subscriberTooSlowPolicy = cpp2c::subscriberTooSlowPolicy(publisherOptions.subscriberTooSlowPolicy);
+    options->subscriberTooSlowPolicy = cpp2c::consumerTooSlowPolicy(publisherOptions.subscriberTooSlowPolicy);
 
     options->initCheck = PUBLISHER_OPTIONS_INIT_CHECK_CONSTANT;
 }
@@ -69,9 +69,6 @@ iox_pub_t iox_pub_init(iox_pub_storage_t* self,
         return nullptr;
     }
 
-    new (self) cpp2c_Publisher();
-    iox_pub_t me = reinterpret_cast<iox_pub_t>(self);
-
     PublisherOptions publisherOptions;
 
     // use default options otherwise
@@ -81,7 +78,7 @@ iox_pub_t iox_pub_init(iox_pub_storage_t* self,
         {
             // note that they may have been initialized but the initCheck
             // pattern overwritten afterwards, we cannot be sure but it is a misuse
-            LogFatal() << "publisher options may not have been initialized with iox_pub_init";
+            LogFatal() << "publisher options may not have been initialized with iox_pub_options_init";
             errorHandler(Error::kBINDING_C__PUBLISHER_OPTIONS_NOT_INITIALIZED);
         }
         publisherOptions.historyCapacity = options->historyCapacity;
@@ -90,8 +87,11 @@ iox_pub_t iox_pub_init(iox_pub_storage_t* self,
             publisherOptions.nodeName = NodeName_t(TruncateToCapacity, options->nodeName);
         }
         publisherOptions.offerOnCreate = options->offerOnCreate;
-        publisherOptions.subscriberTooSlowPolicy = c2cpp::subscriberTooSlowPolicy(options->subscriberTooSlowPolicy);
+        publisherOptions.subscriberTooSlowPolicy = c2cpp::consumerTooSlowPolicy(options->subscriberTooSlowPolicy);
     }
+
+    auto* me = new cpp2c_Publisher();
+    self->do_not_touch_me[0] = reinterpret_cast<uint64_t>(me);
 
     me->m_portData = PoshRuntime::getInstance().getMiddlewarePublisher(
         ServiceDescription{
@@ -105,8 +105,10 @@ iox_pub_t iox_pub_init(iox_pub_storage_t* self,
 
 void iox_pub_deinit(iox_pub_t const self)
 {
+    iox::cxx::Expects(self != nullptr);
+
     self->m_portData->m_toBeDestroyed.store(true, std::memory_order_relaxed);
-    self->~cpp2c_Publisher();
+    delete self;
 }
 
 iox_AllocationResult iox_pub_loan_chunk(iox_pub_t const self, void** const userPayload, const uint32_t userPayloadSize)

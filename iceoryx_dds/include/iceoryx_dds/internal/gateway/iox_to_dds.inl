@@ -1,5 +1,5 @@
 // Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
-// Copyright (c) 2020 - 2021 by Apex.AI Inc. All rights reserved.
+// Copyright (c) 2020 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -61,8 +61,7 @@ inline void Iceoryx2DDSGateway<channel_t, gateway_t>::loadConfiguration(const co
 template <typename channel_t, typename gateway_t>
 inline void Iceoryx2DDSGateway<channel_t, gateway_t>::discover(const capro::CaproMessage& msg) noexcept
 {
-    LogDebug() << "[Iceoryx2DDSGateway] <CaproMessage> "
-               << capro::CaproMessageTypeString[static_cast<uint8_t>(msg.m_type)]
+    LogDebug() << "[Iceoryx2DDSGateway] <CaproMessage> " << msg.m_type
                << " { Service: " << msg.m_serviceDescription.getServiceIDString()
                << ", Instance: " << msg.m_serviceDescription.getInstanceIDString()
                << ", Event: " << msg.m_serviceDescription.getEventIDString() << " }";
@@ -71,7 +70,7 @@ inline void Iceoryx2DDSGateway<channel_t, gateway_t>::discover(const capro::Capr
     {
         return;
     }
-    if (msg.m_subType == capro::CaproMessageSubType::SERVICE)
+    if (msg.m_serviceType != capro::CaproServiceType::PUBLISHER)
     {
         return;
     }

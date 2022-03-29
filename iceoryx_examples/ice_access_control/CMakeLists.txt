@@ -15,14 +15,14 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Build ice_access_control example
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(example_ice_access_control)
 
 option(TOML_CONFIG "TOML support for RouDi with dynamic configuration" OFF)
 
 find_package(iceoryx_posh CONFIG REQUIRED)
 find_package(iceoryx_binding_c CONFIG REQUIRED)
-find_package(iceoryx_utils CONFIG REQUIRED)
+find_package(iceoryx_hoofs CONFIG REQUIRED)
 
 get_target_property(ICEORYX_CXX_STANDARD iceoryx_posh::iceoryx_posh CXX_STANDARD)
 include(IceoryxPlatform)
@@ -49,12 +49,12 @@ target_link_libraries(iox-cpp-cheeky
 target_compile_options(iox-cpp-cheeky PRIVATE ${ICEORYX_WARNINGS} ${ICEORYX_SANITIZER_FLAGS})
 
 add_executable(iox-cpp-roudi-static-segments
-    roudi_main_static_segements.cpp
+    roudi_main_static_segments.cpp
 )
 
 target_link_libraries(iox-cpp-roudi-static-segments
     PRIVATE
-    iceoryx_utils::iceoryx_utils
+    iceoryx_hoofs::iceoryx_hoofs
     iceoryx_posh::iceoryx_posh_roudi
 )
 

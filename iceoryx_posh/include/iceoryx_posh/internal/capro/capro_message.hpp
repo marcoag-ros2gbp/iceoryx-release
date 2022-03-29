@@ -1,4 +1,5 @@
 // Copyright (c) 2019 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +21,10 @@
 
 namespace iox
 {
+namespace log
+{
+class LogStream;
+}
 namespace capro
 {
 /// @brief Enum for service message types which are used in CaPro for
@@ -32,6 +37,8 @@ enum class CaproMessageType : uint8_t
     STOP_OFFER,
     SUB,
     UNSUB,
+    CONNECT,
+    DISCONNECT,
     ACK,
     NACK,
     PUB,
@@ -42,17 +49,28 @@ enum class CaproMessageType : uint8_t
     MESSGAGE_TYPE_END
 };
 
-constexpr int32_t MAX_ENUM_STRING_SIZE = 64;
-constexpr char CaproMessageTypeString[][MAX_ENUM_STRING_SIZE] = {
-    "NOTYPE", "FIND", "OFFER", "STOP_OFFER", "SUB", "UNSUB", "ACK", "NACK", "PUB", "REQ", "RES", "PING", "PONG"};
+/// @brief Converts the CaproMessageType to a string literal
+/// @param[in] value to convert to a string literal
+/// @return pointer to a string literal
+inline constexpr const char* asStringLiteral(CaproMessageType value) noexcept;
 
+/// @brief Convenience stream operator to easily use the `asStringLiteral` function with std::ostream
+/// @param[in] stream sink to write the message to
+/// @param[in] value to convert to a string literal
+/// @return the reference to `stream` which was provided as input parameter
+inline std::ostream& operator<<(std::ostream& stream, CaproMessageType value) noexcept;
 
-enum class CaproMessageSubType : uint8_t
+/// @brief Convenience stream operator to easily use the `asStringLiteral` function with iox::log::LogStream
+/// @param[in] stream sink to write the message to
+/// @param[in] value to convert to a string literal
+/// @return the reference to `stream` which was provided as input parameter
+inline log::LogStream& operator<<(log::LogStream& stream, CaproMessageType value) noexcept;
+
+enum class CaproServiceType : uint8_t
 {
-    NOSUBTYPE = 0,
-    SERVICE,
-    EVENT,
-    FIELD
+    NONE = 0,
+    PUBLISHER,
+    SERVER
 };
 
 /// @brief C'tors for CaPro messages
@@ -60,7 +78,7 @@ class CaproMessage
 {
   public:
     /// @brief default constructor
-    CaproMessage() = default;
+    CaproMessage() noexcept = default;
 
     /// @brief C'tor for CaPro Message with type, service description
     /// @param type                    Message type
@@ -70,11 +88,11 @@ class CaproMessage
     /// @return                        Nothing
     CaproMessage(CaproMessageType type,
                  const ServiceDescription& serviceDescription,
-                 CaproMessageSubType subType = CaproMessageSubType::NOSUBTYPE,
+                 CaproServiceType serviceType = CaproServiceType::NONE,
                  void* chunkQueueData = nullptr) noexcept;
 
     CaproMessageType m_type{CaproMessageType::NOTYPE};
-    CaproMessageSubType m_subType{CaproMessageSubType::NOSUBTYPE};
+    CaproServiceType m_serviceType{CaproServiceType::NONE};
     ServiceDescription m_serviceDescription;
     void* m_chunkQueueData{nullptr};
     uint64_t m_historyCapacity{0u};
@@ -82,5 +100,7 @@ class CaproMessage
 
 } // namespace capro
 } // namespace iox
+
+#include "iceoryx_posh/internal/capro/capro_message.inl"
 
 #endif // IOX_POSH_CAPRO_CAPRO_MESSAGE_HPP

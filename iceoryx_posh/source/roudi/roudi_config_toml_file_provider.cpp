@@ -15,13 +15,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "iceoryx_posh/roudi/roudi_config_toml_file_provider.hpp"
+#include "iceoryx_hoofs/cxx/string.hpp"
+#include "iceoryx_hoofs/cxx/vector.hpp"
+#include "iceoryx_hoofs/internal/file_reader/file_reader.hpp"
+#include "iceoryx_hoofs/platform/getopt.hpp"
+#include "iceoryx_hoofs/posix_wrapper/posix_access_rights.hpp"
 #include "iceoryx_posh/internal/log/posh_logging.hpp"
 #include "iceoryx_posh/roudi/roudi_cmd_line_parser.hpp"
-#include "iceoryx_utils/cxx/string.hpp"
-#include "iceoryx_utils/cxx/vector.hpp"
-#include "iceoryx_utils/internal/file_reader/file_reader.hpp"
-#include "iceoryx_utils/platform/getopt.hpp"
-#include "iceoryx_utils/posix_wrapper/posix_access_rights.hpp"
 
 #include <cpptoml.h>
 #include <string>
@@ -30,7 +30,7 @@ namespace iox
 {
 namespace config
 {
-TomlRouDiConfigFileProvider::TomlRouDiConfigFileProvider(config::CmdLineArgs_t& cmdLineArgs)
+TomlRouDiConfigFileProvider::TomlRouDiConfigFileProvider(config::CmdLineArgs_t& cmdLineArgs) noexcept
 {
     /// don't print additional output if not running
     if (cmdLineArgs.run)
@@ -40,7 +40,7 @@ TomlRouDiConfigFileProvider::TomlRouDiConfigFileProvider(config::CmdLineArgs_t& 
             /// @todo Replace with C++17 std::filesystem::exists()
             cxx::FileReader configFile(defaultConfigFilePath, "", cxx::FileReader::ErrorMode::Ignore);
 
-            if (configFile.IsOpen())
+            if (configFile.isOpen())
             {
                 LogInfo() << "No config file provided. Using '" << defaultConfigFilePath << "'";
                 m_customConfigFilePath = defaultConfigFilePath;
@@ -55,7 +55,8 @@ TomlRouDiConfigFileProvider::TomlRouDiConfigFileProvider(config::CmdLineArgs_t& 
     }
 }
 
-iox::cxx::expected<iox::RouDiConfig_t, iox::roudi::RouDiConfigFileParseError> TomlRouDiConfigFileProvider::parse()
+iox::cxx::expected<iox::RouDiConfig_t, iox::roudi::RouDiConfigFileParseError>
+TomlRouDiConfigFileProvider::parse() noexcept
 {
     // Early exit in case no config file path was provided
     if (m_customConfigFilePath.empty())

@@ -1,4 +1,5 @@
 // Copyright (c) 2019, 2021 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +15,7 @@
 //
 // SPDX-License-Identifier: Apache-2.0
 #include "iceoryx_posh/capro/service_description.hpp"
+#include "iceoryx_hoofs/cxx/convert.hpp"
 #include <iomanip>
 
 namespace iox
@@ -27,33 +29,32 @@ ServiceDescription::ClassHash::ClassHash() noexcept
 
 ServiceDescription::ClassHash::ClassHash(const std::initializer_list<uint32_t>& values) noexcept
 {
-    uint64_t index = 0u;
+    uint64_t index = 0U;
     for (auto& v : values)
     {
         data[index++] = v;
-        if (index == 4u)
+        if (index == CLASS_HASH_ELEMENT_COUNT)
         {
             return;
         }
     }
 }
 
-uint32_t& ServiceDescription::ClassHash::operator[](
-    iox::cxx::range<uint64_t, 0U, CLASS_HASH_ELEMENT_COUNT - 1> index) noexcept
+uint32_t&
+ServiceDescription::ClassHash::operator[](iox::cxx::range<uint64_t, 0U, CLASS_HASH_ELEMENT_COUNT - 1> index) noexcept
 {
     return data[index];
 }
 
-const uint32_t&
-    ServiceDescription::ClassHash::operator[](iox::cxx::range<uint64_t, 0U, CLASS_HASH_ELEMENT_COUNT - 1> index) const
-    noexcept
+const uint32_t& ServiceDescription::ClassHash::operator[](
+    iox::cxx::range<uint64_t, 0U, CLASS_HASH_ELEMENT_COUNT - 1> index) const noexcept
 {
     return data[index];
 }
 
 bool ServiceDescription::ClassHash::operator==(const ClassHash& rhs) const noexcept
 {
-    for (size_t i = 0u; i < CLASS_HASH_ELEMENT_COUNT; ++i)
+    for (size_t i = 0U; i < CLASS_HASH_ELEMENT_COUNT; ++i)
     {
         if (data[i] != rhs[i])
         {
@@ -68,132 +69,49 @@ bool ServiceDescription::ClassHash::operator!=(const ClassHash& rhs) const noexc
     return !operator==(rhs);
 }
 
-ServiceDescription::ServiceDescription(const cxx::Serialization& f_serial) noexcept
-{
-    std::underlying_type<Scope>::type scope;
-    std::underlying_type<Interfaces>::type interfaceSource;
-    f_serial.extract(m_serviceString,
-                     m_instanceString,
-                     m_eventString,
-                     m_serviceID,
-                     m_instanceID,
-                     m_eventID,
-                     m_classHash[0u],
-                     m_classHash[1u],
-                     m_classHash[2u],
-                     m_classHash[3u],
-                     m_hasServiceOnlyDescription,
-                     scope,
-                     interfaceSource);
-    if (scope > static_cast<std::underlying_type<Scope>::type>(Scope::INVALID))
-    {
-        m_scope = Scope::INVALID;
-    }
-    else
-    {
-        m_scope = static_cast<Scope>(scope);
-    }
-    if (interfaceSource > static_cast<std::underlying_type<Interfaces>::type>(Interfaces::INTERFACE_END))
-    {
-        m_interfaceSource = Interfaces::INTERFACE_END;
-    }
-    else
-    {
-        m_interfaceSource = static_cast<Interfaces>(interfaceSource);
-    }
-}
-
 ServiceDescription::ServiceDescription() noexcept
-    : ServiceDescription(InvalidID, InvalidID, InvalidID)
+    : ServiceDescription("", "", "")
 {
 }
 
-ServiceDescription::ServiceDescription(uint16_t f_serviceID, uint16_t f_instanceID) noexcept
-    : ServiceDescription(f_serviceID, InvalidID, f_instanceID)
-{
-    m_hasServiceOnlyDescription = true;
-}
-
-ServiceDescription::ServiceDescription(const IdString_t& f_service, const IdString_t& f_instance) noexcept
-    : ServiceDescription(f_service, f_instance, InvalidIDString)
-{
-    m_hasServiceOnlyDescription = true;
-}
-
-ServiceDescription::ServiceDescription(uint16_t f_serviceID, uint16_t f_eventID, uint16_t f_instanceID) noexcept
-    : m_serviceID(f_serviceID)
-    , m_eventID(f_eventID)
-    , m_instanceID(f_instanceID)
-    , m_serviceString(iox::cxx::TruncateToCapacity, std::to_string(f_serviceID))
-    , m_instanceString(iox::cxx::TruncateToCapacity, std::to_string(f_instanceID))
-    , m_eventString(iox::cxx::TruncateToCapacity, std::to_string(f_eventID))
-{
-}
-
-ServiceDescription::ServiceDescription(const IdString_t& f_service,
-                                       const IdString_t& f_instance,
-                                       const IdString_t& f_event,
-                                       ClassHash f_classHash,
+ServiceDescription::ServiceDescription(const IdString_t& service,
+                                       const IdString_t& instance,
+                                       const IdString_t& event,
+                                       ClassHash classHash,
                                        Interfaces interfaceSource) noexcept
-    : m_serviceString{f_service}
-    , m_instanceString{f_instance}
-    , m_eventString{f_event}
-    , m_classHash(f_classHash)
+    : m_serviceString{service}
+    , m_instanceString{instance}
+    , m_eventString{event}
+    , m_classHash(classHash)
     , m_interfaceSource(interfaceSource)
 {
-    if (!(cxx::convert::stringIsNumber(m_serviceString.c_str(), cxx::convert::NumberType::UNSIGNED_INTEGER)
-          && cxx::convert::fromString(m_serviceString.c_str(), m_serviceID)))
-    {
-        m_serviceID = InvalidID;
-    }
-
-    if (!(cxx::convert::stringIsNumber(m_instanceString.c_str(), cxx::convert::NumberType::UNSIGNED_INTEGER)
-          && cxx::convert::fromString(m_instanceString.c_str(), m_instanceID)))
-    {
-        m_instanceID = InvalidID;
-    }
-
-    if (!(cxx::convert::stringIsNumber(m_eventString.c_str(), cxx::convert::NumberType::UNSIGNED_INTEGER)
-          && cxx::convert::fromString(m_eventString.c_str(), m_eventID)))
-    {
-        m_eventID = InvalidID;
-    }
 }
 
-bool ServiceDescription::operator==(const ServiceDescription& rhs) const
+bool ServiceDescription::operator==(const ServiceDescription& rhs) const noexcept
 {
-    if ((m_serviceID != AnyService) && (rhs.m_serviceID != AnyService))
+    if (m_serviceString != rhs.m_serviceString)
     {
-        if ((m_serviceID != rhs.m_serviceID) || (m_serviceString != rhs.m_serviceString))
-        {
-            return false;
-        }
+        return false;
     }
 
-    if ((m_instanceID != AnyInstance) && (rhs.m_instanceID != AnyInstance))
+    if (m_instanceString != rhs.m_instanceString)
     {
-        if ((m_instanceID != rhs.m_instanceID) || (m_instanceString != rhs.m_instanceString))
-        {
-            return false;
-        }
+        return false;
     }
 
-    if (m_eventID != AnyEvent && rhs.m_eventID != AnyEvent)
+    if (m_eventString != rhs.m_eventString)
     {
-        if ((m_eventID != rhs.m_eventID) || (m_eventString != rhs.m_eventString))
-        {
-            return false;
-        }
+        return false;
     }
     return true;
 }
 
-bool ServiceDescription::operator!=(const ServiceDescription& rhs) const
+bool ServiceDescription::operator!=(const ServiceDescription& rhs) const noexcept
 {
     return !(*this == rhs);
 }
 
-bool ServiceDescription::operator<(const ServiceDescription& rhs) const
+bool ServiceDescription::operator<(const ServiceDescription& rhs) const noexcept
 {
     auto serviceCompare = m_serviceString.compare(rhs.m_serviceString);
     if (serviceCompare != 0)
@@ -216,7 +134,7 @@ bool ServiceDescription::operator<(const ServiceDescription& rhs) const
     return false;
 }
 
-ServiceDescription::operator cxx::Serialization() const
+ServiceDescription::operator cxx::Serialization() const noexcept
 {
     std::underlying_type<Scope>::type scope = static_cast<std::underlying_type<Scope>::type>(m_scope);
     std::underlying_type<Interfaces>::type interface =
@@ -224,65 +142,72 @@ ServiceDescription::operator cxx::Serialization() const
     return cxx::Serialization::create(m_serviceString,
                                       m_instanceString,
                                       m_eventString,
-                                      m_serviceID,
-                                      m_instanceID,
-                                      m_eventID,
-                                      m_classHash[0u],
-                                      m_classHash[1u],
-                                      m_classHash[2u],
-                                      m_classHash[3u],
-                                      m_hasServiceOnlyDescription,
+                                      m_classHash[0U],
+                                      m_classHash[1U],
+                                      m_classHash[2U],
+                                      m_classHash[3U],
                                       scope,
                                       interface);
 }
 
-uint16_t ServiceDescription::getInstanceID() const noexcept
+cxx::expected<ServiceDescription, cxx::Serialization::Error>
+ServiceDescription::deserialize(const cxx::Serialization& serialized) noexcept
 {
-    return m_instanceID;
+    ServiceDescription deserializedObject;
+
+    using ScopeUnderlyingType = std::underlying_type<Scope>::type;
+    using InterfaceUnderlyingType = std::underlying_type<Interfaces>::type;
+
+    ScopeUnderlyingType scope{0};
+    InterfaceUnderlyingType interfaceSource{0};
+
+    auto deserializationSuccessful = serialized.extract(deserializedObject.m_serviceString,
+                                                        deserializedObject.m_instanceString,
+                                                        deserializedObject.m_eventString,
+                                                        deserializedObject.m_classHash[0U],
+                                                        deserializedObject.m_classHash[1U],
+                                                        deserializedObject.m_classHash[2U],
+                                                        deserializedObject.m_classHash[3U],
+                                                        scope,
+                                                        interfaceSource);
+    if (!deserializationSuccessful || scope >= static_cast<ScopeUnderlyingType>(Scope::INVALID)
+        || interfaceSource >= static_cast<InterfaceUnderlyingType>(Interfaces::INTERFACE_END))
+    {
+        return cxx::error<cxx::Serialization::Error>(cxx::Serialization::Error::DESERIALIZATION_FAILED);
+    }
+
+    deserializedObject.m_scope = static_cast<Scope>(scope);
+    deserializedObject.m_interfaceSource = static_cast<Interfaces>(interfaceSource);
+
+    return cxx::success<ServiceDescription>(deserializedObject);
 }
 
-uint16_t ServiceDescription::getServiceID() const noexcept
-{
-    return m_serviceID;
-}
-
-uint16_t ServiceDescription::getEventID() const noexcept
-{
-    return m_eventID;
-}
-
-IdString_t ServiceDescription::getServiceIDString() const noexcept
+const IdString_t& ServiceDescription::getServiceIDString() const noexcept
 {
     return m_serviceString;
 }
 
-IdString_t ServiceDescription::getInstanceIDString() const noexcept
+const IdString_t& ServiceDescription::getInstanceIDString() const noexcept
 {
     return m_instanceString;
 }
 
-IdString_t ServiceDescription::getEventIDString() const noexcept
+const IdString_t& ServiceDescription::getEventIDString() const noexcept
 {
     return m_eventString;
 }
 
-bool ServiceDescription::hasServiceOnlyDescription() const noexcept
+bool ServiceDescription::isLocal() const noexcept
 {
-    return m_hasServiceOnlyDescription;
+    return m_scope == Scope::LOCAL;
 }
 
-
-bool ServiceDescription::isInternal() const noexcept
+void ServiceDescription::setLocal() noexcept
 {
-    return m_scope == Scope::INTERNAL;
+    m_scope = Scope::LOCAL;
 }
 
-void ServiceDescription::setInternal() noexcept
-{
-    m_scope = Scope::INTERNAL;
-}
-
-Scope ServiceDescription::getScope() noexcept
+Scope ServiceDescription::getScope() const noexcept
 {
     return m_scope;
 }
@@ -297,24 +222,25 @@ Interfaces ServiceDescription::getSourceInterface() const noexcept
     return m_interfaceSource;
 }
 
-bool ServiceDescription::isValid() const noexcept
-{
-    if (m_hasServiceOnlyDescription)
-    {
-        return !(m_serviceString == iox::capro::InvalidIDString || m_serviceID == iox::capro::AnyService
-                 || m_instanceString == iox::capro::InvalidIDString || m_instanceID == iox::capro::AnyInstance);
-    }
-    else
-    {
-        return !(m_serviceString == iox::capro::InvalidIDString || m_serviceID == iox::capro::AnyService
-                 || m_instanceString == iox::capro::InvalidIDString || m_instanceID == iox::capro::AnyInstance
-                 || m_eventString == iox::capro::InvalidIDString || m_eventID == iox::capro::AnyEvent);
-    }
-}
-
 bool serviceMatch(const ServiceDescription& first, const ServiceDescription& second) noexcept
 {
-    return (first.getServiceID() == second.getServiceID());
+    return (first.getServiceIDString() == second.getServiceIDString());
+}
+
+std::ostream& operator<<(std::ostream& stream, const ServiceDescription& service) noexcept
+{
+    /// @todo #415 Add classHash, scope and interface
+    stream << "Service: " << service.getServiceIDString() << ", Instance: " << service.getInstanceIDString()
+           << ", Event: " << service.getEventIDString();
+    return stream;
+}
+
+log::LogStream& operator<<(log::LogStream& stream, const ServiceDescription& service) noexcept
+{
+    /// @todo #415 Add classHash, scope and interface
+    stream << "Service: " << service.getServiceIDString() << ", Instance: " << service.getInstanceIDString()
+           << ", Event: " << service.getEventIDString();
+    return stream;
 }
 
 } // namespace capro

@@ -11,7 +11,7 @@ one accessing it or that it is accessed with a guard like a `std::mutex`.
 ## Introduction
 
 For an introduction into the terminology please read the Glossary in the
-[WaitSet C++ example](https://github.com/eclipse-iceoryx/iceoryx/tree/master/iceoryx_examples/waitset).
+[WaitSet C++ example](https://github.com/eclipse-iceoryx/iceoryx/tree/v2.0.0/iceoryx_examples/waitset).
 
 The Listener is a completely thread-safe construct that reacts to events by
 executing registered callbacks in a background thread. Events can be emitted by
@@ -42,7 +42,7 @@ we store it until we received the other side.
 
 The publisher of this example does not contain any new features but if you have
 some questions take a look at the
-[icedelivery example](https://github.com/eclipse-iceoryx/iceoryx/tree/master/iceoryx_examples/icedelivery).
+[icedelivery example](https://github.com/eclipse-iceoryx/iceoryx/tree/v2.0.0/iceoryx_examples/icedelivery).
 
 ### ice_callbacks_subscriber.cpp
 
@@ -51,6 +51,7 @@ some questions take a look at the
 The subscriber main function starts as usual and after registering the runtime
 we create the listener that starts a background thread.
 
+<!--[geoffrey][iceoryx_examples/callbacks/ice_callbacks_subscriber.cpp][create listener]-->
 ```cpp
 iox::popo::Listener listener;
 ```
@@ -60,6 +61,7 @@ every 4 seconds so that `heartbeat received` can be printed to the console.
 Furthermore, we have to create two subscribers to receive samples for the two
 services.
 
+<!--[geoffrey][iceoryx_examples/callbacks/ice_callbacks_subscriber.cpp][create heartbeat and subscribers]-->
 ```cpp
 iox::popo::UserTrigger heartbeat;
 iox::popo::Subscriber<CounterTopic> subscriberLeft({"Radar", "FrontLeft", "Counter"});
@@ -69,9 +71,10 @@ iox::popo::Subscriber<CounterTopic> subscriberRight({"Radar", "FrontRight", "Cou
 Next thing is a `heartbeatThread` which will trigger our heartbeat trigger every
 4 seconds.
 
+<!--[geoffrey][iceoryx_examples/callbacks/ice_callbacks_subscriber.cpp][create heartbeat]-->
 ```cpp
 std::thread heartbeatThread([&] {
-    while (keepRunning)
+    while (!iox::posix::hasTerminationRequested())
     {
         heartbeat.trigger();
         std::this_thread::sleep_for(std::chrono::seconds(4));
@@ -79,35 +82,36 @@ std::thread heartbeatThread([&] {
 });
 ```
 
-Now that everything is setup we can attach the subscribers to the listener so that
+Now that everything is set up, we can attach the subscribers to the listener so that
 every time a new sample (`iox::popo::SubscriberEvent::DATA_RECEIVED`) is received our callback
 (`onSampleReceivedCallback`) will be called. We also attach
 our `heartbeat` user trigger to print the heartbeat message to the console via another
 callback (`heartbeatCallback`).
 
+<!--[geoffrey][iceoryx_examples/callbacks/ice_callbacks_subscriber.cpp][attach everything]-->
 ```cpp
-listener.attachEvent(heartbeat, iox::popo::createNotificationCallback(heartbeatCallback))
-        .or_else([](auto) {
-            std::cerr << "unable to attach heartbeat event" << std::endl;
-            std::exit(EXIT_FAILURE);
+listener.attachEvent(heartbeat, iox::popo::createNotificationCallback(heartbeatCallback)).or_else([](auto) {
+    std::cerr << "unable to attach heartbeat event" << std::endl;
+    std::exit(EXIT_FAILURE);
 });
-
-listener.attachEvent(subscriberLeft,
-                     iox::popo::SubscriberEvent::DATA_RECEIVED, 
-                     iox::popo::createNotificationCallback(onSampleReceivedCallback))
-    .or_else([](auto) {
-        std::cerr << "unable to attach subscriberLeft" << std::endl;
-        std::exit(EXIT_FAILURE);
-    });
 
 // It is possible to attach any c function here with a signature of void(iox::popo::Subscriber<CounterTopic> *).
 // But please be aware that the listener does not take ownership of the callback, therefore it has to exist as
 // long as the event is attached. Furthermore, it excludes lambdas which are capturing data since they are not
 // convertable to a c function pointer.
 // to simplify the example we attach the same callback onSampleReceivedCallback again
-listener.attachEvent(subscriberRight,
-                     iox::popo::SubscriberEvent::DATA_RECEIVED,
-                     iox::popo::createNotificationCallback(onSampleReceivedCallback))
+listener
+    .attachEvent(subscriberLeft,
+                 iox::popo::SubscriberEvent::DATA_RECEIVED,
+                 iox::popo::createNotificationCallback(onSampleReceivedCallback))
+    .or_else([](auto) {
+        std::cerr << "unable to attach subscriberLeft" << std::endl;
+        std::exit(EXIT_FAILURE);
+    });
+listener
+    .attachEvent(subscriberRight,
+                 iox::popo::SubscriberEvent::DATA_RECEIVED,
+                 iox::popo::createNotificationCallback(onSampleReceivedCallback))
     .or_else([](auto) {
         std::cerr << "unable to attach subscriberRight" << std::endl;
         std::exit(EXIT_FAILURE);
@@ -122,18 +126,20 @@ In this example, we choose to attach the same callback twice to make things easi
 but you are free to attach any callback with the signature `void(iox::popo::Subscriber<CounterTopic> *)`.
 
 The setup is complete, but it would terminate right away since we have no blocker which
-waits until SIGINT or SIGTERM was send. In the other examples, we had not that problem
+waits until `SIGINT` or `SIGTERM` was send. In the other examples, we had not that problem
 since we pulled all the events in a while true loop but working only with callbacks
-requires something like our `shutdownSemaphore`, a semaphore on which we wait until
-the signal callback increments it.
+requires something like our `SignalWatcher` which waits until `SIGINT` or `SIGTERM`
+was signaled.
 
+<!--[geoffrey][iceoryx_examples/callbacks/ice_callbacks_subscriber.cpp][wait for sigterm]-->
 ```cpp
-shutdownSemaphore.wait();
+iox::posix::waitForTerminationRequest();
 ```
 
-When the `shutdownSemaphore` unblocks we clean up all resources and terminate the process
+When `waitForTerminationRequest` unblocks we clean up all resources and terminate the process
 gracefully.
 
+<!--[geoffrey][iceoryx_examples/callbacks/ice_callbacks_subscriber.cpp][cleanup]-->
 ```cpp
 listener.detachEvent(heartbeat);
 listener.detachEvent(subscriberLeft, iox::popo::SubscriberEvent::DATA_RECEIVED);
@@ -151,6 +157,7 @@ RAII-based design takes care of the resource cleanup.
 The callbacks must have a signature like `void(PointerToEventOrigin*)`.
 Our `heartbeatCallback` for instance, just prints the message `heartbeat received`.
 
+<!--[geoffrey][iceoryx_examples/callbacks/ice_callbacks_subscriber.cpp][heartbeat callback]-->
 ```cpp
 void heartbeatCallback(iox::popo::UserTrigger*)
 {
@@ -163,6 +170,7 @@ sample and check which subscriber signaled the event by acquiring the subscriber
 service description. If the instance is equal to `FrontLeft` we store the sample
 in the `leftCache` otherwise in the `rightCache`.
 
+<!--[geoffrey][iceoryx_examples/callbacks/ice_callbacks_subscriber.cpp][[subscriber callback][get data]]-->
 ```cpp
 void onSampleReceivedCallback(iox::popo::Subscriber<CounterTopic>* subscriber)
 {
@@ -178,13 +186,23 @@ void onSampleReceivedCallback(iox::popo::Subscriber<CounterTopic>* subscriber)
         {
             rightCache.emplace(*sample);
         }
+
+        std::cout << "received: " << sample->counter << std::endl;
+    });
+    // ...
+}
 ```
 
 In the next step, we check if both caches are filled. If this is the case, we print
 an extra message which states the result of the sum of both received values.
 Afterward, we reset both caches to start fresh again.
 
+<!--[geoffrey][iceoryx_examples/callbacks/ice_callbacks_subscriber.cpp][[subscriber callback][process data]]-->
 ```cpp
+void onSampleReceivedCallback(iox::popo::Subscriber<CounterTopic>* subscriber)
+{
+    // ...
+    // if both caches are filled we can process them
     if (leftCache && rightCache)
     {
         std::cout << "Received samples from FrontLeft and FrontRight. Sum of " << leftCache->counter << " + "
@@ -192,69 +210,71 @@ Afterward, we reset both caches to start fresh again.
         leftCache.reset();
         rightCache.reset();
     }
+}
 ```
 
 ### Additional context data for callbacks (ice_callbacks_listener_as_class_member.cpp)
 
 Here we demonstrate how you can provide virtually everything as an additional argument to the callbacks.
-You just have to provide a reference to a value as additional argument in the `attachEvent` method 
-which is then provided as argument in your callback. One of the use cases is to get access 
+You just have to provide a reference to a value as additional argument in the `attachEvent` method
+which is then provided as argument in your callback. One of the use cases is to get access
 to members and methods of an object inside a static method which we demonstrate here.
 
-This example is identical to the [ice_callbacks_subscriber.cpp](#ice_callbacks_subscriber.cpp) 
-one, except that we left out the cyclic heartbeat trigger. The key difference is that 
-the listener is now a class member and in every callback we would like to change 
-some member variables. To do this we require an additional pointer to the object 
+This example is identical to the [ice_callbacks_subscriber.cpp](#ice_callbacks_subscribercpp)
+one, except that we left out the cyclic heartbeat trigger. The key difference is that
+the listener is now a class member and in every callback we would like to change
+some member variables. For this we require an additional pointer to the object
 since the listener requires c function references which do not allow the usage
-of lambdas with capturing. Here we can use the userType feature which allows us 
+of lambda expressions with capturing. Here we can use the userType feature which allows us
 to provide the this pointer as additional argument to the callback.
 
 The main function is now pretty short, we instantiate our object of type `CounterService`
-and call `waitForShutdown` which uses the `shutdownSemaphore` like in the 
+and call `waitForTerminationRequest` like in the
 previous example to wait for the control c event from the user.
-```cpp
-auto signalIntGuard = iox::posix::registerSignalHandler(iox::posix::Signal::INT, sigHandler);
-auto signalTermGuard = iox::posix::registerSignalHandler(iox::posix::Signal::TERM, sigHandler);
 
+<!--[geoffrey][iceoryx_examples/callbacks/ice_callbacks_listener_as_class_member.cpp][init]-->
+```cpp
 iox::runtime::PoshRuntime::initRuntime(APP_NAME);
 
 CounterService counterService;
 
-counterService.waitForShutdown();
+iox::posix::waitForTerminationRequest();
 ```
 
 Our `CounterService` has the following members:
+
+<!--[geoffrey][iceoryx_examples/callbacks/ice_callbacks_listener_as_class_member.cpp][members]-->
 ```cpp
-class CounterService {
-    //...
-    iox::popo::Subscriber<CounterTopic> m_subscriberLeft;
-    iox::popo::Subscriber<CounterTopic> m_subscriberRight;
-    iox::cxx::optional<CounterTopic> m_leftCache;
-    iox::cxx::optional<CounterTopic> m_rightCache;
-    iox::popo::Listener m_listener;
-};
+iox::popo::Subscriber<CounterTopic> m_subscriberLeft;
+iox::popo::Subscriber<CounterTopic> m_subscriberRight;
+iox::cxx::optional<CounterTopic> m_leftCache;
+iox::cxx::optional<CounterTopic> m_rightCache;
+iox::popo::Listener m_listener;
 ```
 
 And their purposes are the same as in the previous example. In the constructor
-we initialize the two subscribers and attach them to our listener. But now we 
-add an additional parameter in the `iox::popo::createNotificationCallback`, the 
-dereferenced `this` pointer. It has to be dereferenced since we require a reference 
+we initialize the two subscribers and attach them to our listener. But now we
+add an additional parameter in the `iox::popo::createNotificationCallback`, the
+dereferenced `this` pointer. It has to be dereferenced since we require a reference
 as argument.
 
-!!! attention 
-    The user has to ensure that the contextData (`*this`) in `attachEvent` 
-    lives as long as the attachment, with its callback, is attached otherwise 
+!!! attention
+    The user has to ensure that the contextData (`*this`) in `attachEvent`
+    lives as long as the attachment, with its callback, is attached otherwise
     the callback context data pointer is dangling.
 
+<!--[geoffrey][iceoryx_examples/callbacks/ice_callbacks_listener_as_class_member.cpp][ctor]-->
 ```cpp
 CounterService()
     : m_subscriberLeft({"Radar", "FrontLeft", "Counter"})
     , m_subscriberRight({"Radar", "FrontRight", "Counter"})
 {
-    /// Attach the static method onSampleReceivedCallback and provide "*this" as additional argument
+    /// Attach the static method onSampleReceivedCallback and provide this as additional argument
     /// to the callback to gain access to the object whenever the callback is called.
     /// It is not possible to use a lambda with capturing here since they are not convertable to
     /// a C function pointer.
+    /// important: the user has to ensure that the contextData (*this) lives as long as
+    ///            the subscriber with its callback is attached to the listener
     m_listener
         .attachEvent(m_subscriberLeft,
                      iox::popo::SubscriberEvent::DATA_RECEIVED,
@@ -274,14 +294,15 @@ CounterService()
 }
 ```
 
-The `onSampleReceivedCallback` is now a static method instead of a free function. It 
-has to be static since we require a C function reference as callback argument and a 
-static method can be converted into such a type. But in a static method we do not 
-have access to the members of an object, therefore we have to add an additional 
-argument, the pointer to the object itself, called `self`. 
+The `onSampleReceivedCallback` is now a static method instead of a free function. It
+has to be static since we require a C function reference as callback argument and a
+static method can be converted into such a type. But in a static method we do not
+have access to the members of an object, therefore we have to add an additional
+argument, the pointer to the object itself, called `self`.
+
+<!--[geoffrey][iceoryx_examples/callbacks/ice_callbacks_listener_as_class_member.cpp][callback]-->
 ```cpp
-static void onSampleReceivedCallback(iox::popo::Subscriber<CounterTopic>* subscriber, 
-                                     CounterService* self)
+static void onSampleReceivedCallback(iox::popo::Subscriber<CounterTopic>* subscriber, CounterService* self)
 {
     subscriber->take().and_then([subscriber, self](auto& sample) {
         auto instanceString = subscriber->getServiceDescription().getInstanceIDString();
@@ -311,7 +332,6 @@ static void onSampleReceivedCallback(iox::popo::Subscriber<CounterTopic>* subscr
 }
 ```
 
-
 <center>
-[Check out callbacks on GitHub :fontawesome-brands-github:](https://github.com/eclipse-iceoryx/iceoryx/tree/master/iceoryx_examples/callbacks){ .md-button }
+[Check out callbacks on GitHub :fontawesome-brands-github:](https://github.com/eclipse-iceoryx/iceoryx/tree/v2.0.0/iceoryx_examples/callbacks){ .md-button }
 </center>

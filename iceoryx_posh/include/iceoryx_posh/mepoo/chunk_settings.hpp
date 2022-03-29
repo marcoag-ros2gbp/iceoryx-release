@@ -17,8 +17,8 @@
 #ifndef IOX_POSH_MEPOO_CHUNK_SETTINGS_HPP
 #define IOX_POSH_MEPOO_CHUNK_SETTINGS_HPP
 
+#include "iceoryx_hoofs/cxx/expected.hpp"
 #include "iceoryx_posh/iceoryx_posh_types.hpp"
-#include "iceoryx_utils/cxx/expected.hpp"
 
 #include <cstdint>
 
@@ -35,7 +35,6 @@ class ChunkSettings
         USER_HEADER_ALIGNMENT_EXCEEDS_CHUNK_HEADER_ALIGNMENT,
         USER_HEADER_SIZE_NOT_MULTIPLE_OF_ITS_ALIGNMENT,
         REQUIRED_CHUNK_SIZE_EXCEEDS_MAX_CHUNK_SIZE,
-        INVALID_STATE
     };
 
     /// @brief constructs and initializes a ChunkSettings

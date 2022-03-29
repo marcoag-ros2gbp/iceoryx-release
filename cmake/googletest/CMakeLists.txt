@@ -1,4 +1,5 @@
 # Copyright (c) 2020 by Robert Bosch GmbH. All rights reserved.
+# Copyright (c) 2021 by Apex.AI Inc. All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +14,7 @@
 # limitations under the License.
 #
 # SPDX-License-Identifier: Apache-2.0
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(googletest-build CXX)
 
 if(BUILD_TEST)
@@ -39,6 +40,11 @@ if(BUILD_TEST)
         set(GTest_DIR ${GTest_DIR} CACHE PATH "" FORCE)
     endif()
 
+    set(EXTRA_CMAKE_ARGS)
+    if(DEFINED CMAKE_CXX_FLAGS)
+        list(APPEND EXTRA_CMAKE_ARGS -DCMAKE_CXX_FLAGS=${CMAKE_CXX_FLAGS})
+    endif()
+
     # set download confi, source and build paths
     set(DOWNLOAD_CONFIG_DIR ${CMAKE_BINARY_DIR}/dependencies/googletest/download)
     set(SOURCE_DIR ${CMAKE_BINARY_DIR}/dependencies/googletest/src)
@@ -47,7 +53,8 @@ if(BUILD_TEST)
 
     # Download and unpack googletest at configure time
     configure_file(googletest.cmake.in ${DOWNLOAD_CONFIG_DIR}/CMakeLists.txt)
-    execute_process(COMMAND ${CMAKE_COMMAND} ${ENABLE_STATIC_DEBUG} -G "${CMAKE_GENERATOR}" "${TOOLCHAIN_FILE}" "${DOWNLOAD_CONFIG_DIR}"
+
+    execute_process(COMMAND ${CMAKE_COMMAND} ${ENABLE_STATIC_DEBUG} -G "${CMAKE_GENERATOR}" "${COMPILER_FLAGS}" "${TOOLCHAIN_FILE}" "${DOWNLOAD_CONFIG_DIR}"
         RESULT_VARIABLE result
         WORKING_DIRECTORY ${DOWNLOAD_CONFIG_DIR} )
     if(result)
@@ -74,7 +81,7 @@ if(BUILD_TEST)
         endif()
     endif()
 
-    execute_process(COMMAND ${CMAKE_COMMAND} ${ENABLE_STATIC_DEBUG} -G "${CMAKE_GENERATOR}" "-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}" "${TOOLCHAIN_FILE}" "${SOURCE_DIR}"
+    execute_process(COMMAND ${CMAKE_COMMAND} ${ENABLE_STATIC_DEBUG} -G "${CMAKE_GENERATOR}" "-DCMAKE_INSTALL_PREFIX=${INSTALL_DIR}" "${TOOLCHAIN_FILE}" "${EXTRA_CMAKE_ARGS}" "${SOURCE_DIR}"
         RESULT_VARIABLE result
         WORKING_DIRECTORY ${BUILD_DIR} )
     if(result)
