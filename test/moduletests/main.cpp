@@ -1,4 +1,5 @@
 // Copyright (c) 2019 by Robert Bosch GmbH. All rights reserved.
+// Copyright (c) 2021 - 2022 by Apex.AI inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,12 +17,26 @@
 
 #include "test.hpp"
 
+/// just to check that no non-existing headers are included
+#include "iceoryx_binding_c/api.h"
+
+#include "test_types_storage_size.hpp"
+
 using namespace ::testing;
 using ::testing::_;
-using ::testing::Return;
+
+// in case this isn't executed before the other tests, just call
+// 'checkIceoryxBindingCStorageSizes' directly in main
+/// @todo iox-#308 enable this check once the stack is used to store the objects
+TEST(SanityCheck, DISABLED_CheckStorageSizeAndAlingment)
+{
+    ::testing::Test::RecordProperty("TEST_ID", "879abe49-6cfb-43f8-a9a1-b6c20b99293f");
+    checkIceoryxBindingCStorageSizes();
+}
 
 int main(int argc, char* argv[])
 {
     ::testing::InitGoogleTest(&argc, argv);
+
     return RUN_ALL_TESTS();
 }

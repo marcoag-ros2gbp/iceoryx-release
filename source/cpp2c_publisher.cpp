@@ -21,7 +21,7 @@ cpp2c_Publisher::cpp2c_Publisher(cpp2c_Publisher&& rhs) noexcept
     *this = std::move(rhs);
 }
 
-cpp2c_Publisher::~cpp2c_Publisher()
+cpp2c_Publisher::~cpp2c_Publisher() noexcept
 {
     if (m_portData)
     {
@@ -43,4 +43,3 @@ cpp2c_Publisher& cpp2c_Publisher::operator=(cpp2c_Publisher&& rhs) noexcept
     }
     return *this;
 }
-
