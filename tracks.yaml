@@ -52,4 +52,4 @@ tracks:
     ros_distro: rolling
     vcs_type: git
     vcs_uri: https://github.com/eclipse-iceoryx/iceoryx.git
-    version: 2.0.1
+    version: 2.0.2
