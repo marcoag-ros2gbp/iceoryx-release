@@ -75,11 +75,11 @@ tracks:
     patches: null
     release_inc: '5'
     release_repo_url: null
-    release_tag: v:{version}
+    release_tag: v2.0.5
     ros_distro: iron
     vcs_type: git
     vcs_uri: https://github.com/eclipse-iceoryx/iceoryx.git
-    version: 2.0.3
+    version: 2.0.5
   rolling:
     actions:
     - bloom-export-upstream :{vcs_local_uri} :{vcs_type} --tag :{release_tag} --display-uri
