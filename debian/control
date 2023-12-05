@@ -1,0 +1,14 @@
+Source: ros-humble-iceoryx-hoofs
+Section: misc
+Priority: optional
+Maintainer: Eclipse Foundation, Inc. <iceoryx-oss-support@apex.ai>
+Build-Depends: debhelper (>= 9.0.0), acl, cmake, libacl1-dev, libatomic1, ros-humble-ros-workspace
+Homepage: https://iceoryx.io
+Standards-Version: 3.9.2
+
+Package: ros-humble-iceoryx-hoofs
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, acl, libacl1-dev, libatomic1, ros-humble-ros-workspace
+Conflicts: ros-humble-iceoryx-utils
+Replaces: ros-humble-iceoryx-utils
+Description: Eclipse iceoryx inter-process-communication (IPC) middleware basic building blocks
