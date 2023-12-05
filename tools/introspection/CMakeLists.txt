@@ -17,9 +17,15 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-set(IOX_VERSION_STRING "2.0.3")
+set(IOX_VERSION_STRING "2.0.5")
 
 project(iceoryx_introspection VERSION ${IOX_VERSION_STRING})
+
+# Do not build the introspection on Windows due to missing ncurses
+if(WIN32)
+    message(STATUS "The introspection client is not supported on Windows")
+    return()
+endif()
 
 find_package(iceoryx_hoofs REQUIRED)
 find_package(iceoryx_posh REQUIRED)
@@ -29,10 +35,18 @@ include(IceoryxPlatform)
 
 set(PREFIX iceoryx/v${CMAKE_PROJECT_VERSION})
 
+if(CMAKE_SYSTEM_NAME MATCHES Linux OR CMAKE_SYSTEM_NAME MATCHES Darwin)
+    option(BUILD_SHARED_LIBS "Create shared libraries by default" ON)
+endif()
+
 # cmake doesn't find ncurses under QNX; let the compiler complain if the header is missing
 if(NOT QNX)
     SET(CURSES_USE_NCURSES TRUE)
-    find_package(Curses REQUIRED)
+    find_package(Curses QUIET)
+    if(NOT CURSES_FOUND)
+        message(STATUS "The build of the introspection client is skipped due to missing the curses library")
+        return()
+    endif()
     if(${CURSES_HAVE_NCURSES_H} MATCHES ".*-NOTFOUND")
         message(SEND_ERROR "ncurses header not found! Please install libncurses5-dev!")
     endif(${CURSES_HAVE_NCURSES_H} MATCHES ".*-NOTFOUND")
@@ -88,8 +102,6 @@ target_compile_options(iceoryx_introspection PRIVATE ${ICEORYX_WARNINGS} ${ICEOR
 
 if(LINUX)
     set(LIB_TINFO tinfo)
-elseif(WIN32)
-    message(WARNING "Introspection not supported for windows." )
 else()
     set(LIB_TINFO "")
 endif()
