@@ -1,98 +1,133 @@
-# Iceoryx C Language binding
+# iceoryx - true zero-copy inter-process-communication
 
-If you are looking for an example take a look at the
-[icedelivery on c example](../iceoryx_examples/icedelivery_in_c).
+<p align="center">
+<img src="https://user-images.githubusercontent.com/8661268/114321508-64a6b000-9b1b-11eb-95ef-b84c91387cff.png" width="50%">
+</p>
 
-## C API structure
+[![Build & Test](https://github.com/eclipse-iceoryx/iceoryx/workflows/Build%20&%20Test/badge.svg?branch=master)](https://github.com/eclipse-iceoryx/iceoryx/actions)
+[![Integrationtests](https://github.com/eclipse-iceoryx/iceoryx/workflows/Iceoryx%20Integrationtests/badge.svg?branch=master)](https://github.com/eclipse-iceoryx/iceoryx/actions)
+[![Gitter](https://badges.gitter.im/eclipse-iceoryx/iceoryx.svg)](https://gitter.im/eclipse/iceoryx)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![Codecov](https://codecov.io/gh/eclipse-iceoryx/iceoryx/branch/master/graph/badge.svg?branch=master)](https://codecov.io/gh/eclipse-iceoryx/iceoryx?branch=master)
+[![Sanitize](https://github.com/eclipse/iceoryx/workflows/Sanitize/badge.svg?branch=master)](https://github.com/eclipse/iceoryx/actions?query=workflow%3ASanitize)
 
-The C API is supposed to be as close to the C++ API as possible. This means, developers who are
-already familiar with the C++ API do not have to learn iceoryx from scratch in order to use the C API.
-There are of course differences due to C being a different language than C++.
+## Introduction
 
-Therefore, we have the following coding conventions exclusively in the C API.
+Great that you've made it to this neat Eclipse project! Let's get you started by providing a quick background
+tour, introducing the project scope and all you need for installation and a first running example.
 
-- C functions are using an abbreviation of the class name. For instance `Subscriber` would use `sub` and
-  the methods are named like `iox_sub_method_name` where the `camelCase` is converted into `snake_case`.
-- A typedef for the handle is created with the abbreviation as name, a `iox` prefix and a `_t` suffix,
-  like `iox_sub_t`
-- If the constructor allocates an element it has the suffix `_create` and is called for instance
-  `iox_node_create`. Analog to the constructor the destructor has the suffix `_destroy` and is named
-  like `iox_node_destroy`.
-- Pre iceoryx v2, constructor requiring preallocated memory had the suffix `_init` and required a pointer
-  to a storage which was usually placed on the stack. Due to non-trivial issues with different sizes for
-  different platforms and architectures the storage is ignored and the object is allocated on the heap.
-  This might be reverted in a future release depending on a proper solution for the problem.
-  The API remains the same, so a `_storage_t` object like `iox_sub_storage_t` must be created and
-  a pointer to this object must be passed to `_init`, e.g. `iox_sub_init`. This function returns a handle
-  which does not point to the storage. Using the address of the storage in `_deinit` is undefined and
-  most likely will result in a segmentation fault.
-  The usage is according the following example
+So first off: What is iceoryx?
 
-  ```c
-  iox_sub_storage_t subStorage;
-  iox_sub_t subscriber = iox_sub_init(&subStorage, "foo", "bar", "baz", nullptr);
-  // do something with subscriber
-  iox_sub_deinit(subscriber);
-  ```
+iceoryx is an inter-process-communication (IPC) middleware for various operating systems (currently we support Linux,
+macOS, QNX, FreeBSD and Windows 10).
+It has its origins in the automotive industry, where large amounts of data have to be transferred between different processes
+when it comes to driver assistance or automated driving systems. However, the efficient communication mechanisms can also be applied
+to a wider range of use cases, e.g. in the field of robotics or game development.
 
-- The first parameter is always the handle to the corresponding object.
-- If possible, the arguments should stay the same in the C API.
+<p align="center">
+<img src="https://user-images.githubusercontent.com/8661268/74612998-b962bc80-510a-11ea-97f0-62f41c5d287b.gif" width="100%">
+</p>
 
-- Enum values are named like `EnumName_EnumValue`
-- Enum names follow the rule `namespace_EnumName`
+iceoryx uses a true zero-copy, shared memory approach that allows to transfer data from publishers to subscribers without a single copy.
+This ensures data transmissions with constant latency, regardless of the size of the payload. For more information have a look at the
+[1000 words iceoryx introduction](https://www.eclipse.org/community/eclipse_newsletter/2019/december/4.php).
 
-Here is an example:
+<p align="center">
+<img src="https://user-images.githubusercontent.com/56729607/157733625-e3e61617-2f72-46ba-b4f2-5a3973f9ad6f.png" width="80%">
+</p>
 
-```cpp
-namespace iox {
-enum class Color {
-    RED,
-    GREEN,
-    BLUE
-};
+You're right, middleware is a cluttered term and can somehow be all or nothing. To get a better impression what
+this means for iceoryx, please have a loot at our [goals and non-goals](doc/goals-non-goals.md).
 
-class Channel {
-    public:
-        Channel(const std::string &name);
-        cxx::optional<void*> receive();
-        bool send(void * data);
-        void allHailHypnotoad();
-};
+Don't get too frightened of the API when strolling through the examples. Think of the untyped C++ and the C API as a
+"plumbing" one ("plumbing" as defined in Git, which means low-level). We're not using the "plumbing" APIs ourselves, but
+instead the typed C++ API. The normal use case is that iceoryx is integrated as high-performance IPC transport layer in
+a bigger framework with additional API layers.
+An example for such a "porcelain" API would be [ROS 2](https://www.ros.org/). Others are listed in the next section.
 
-class MyOtherClass {
-    public:
-        MyOtherClass(const int a);
-        void youSpinMeRoundLikeARecord();
-};
-}
-```
+You can find the full API documentation on 🌐 [https://iceoryx.io](https://iceoryx.io).
 
-The corresponding C binding would then look like:
+### Supported Platforms
 
-```c
-enum iox_Color {
-    Color_RED,
-    Color_GREEN,
-    Color_BLUE,
-};
+|Operating System| supports access rights for shared memory | command line parsing    |
+|----------------|:----------------------------------------:|:-----------------------:|
+| Linux          | yes                                      | yes                     |
+| QNX            | yes                                      | yes                     |
+| MacOS          | no, not planned for implementation       | yes                     |
+| Windows 10     | no, not planned for implementation       | will be implemented     |
+| FreeBSD (Unix) | no, not planned for implementation       | yes                     |
 
+In general unix platforms should work with iceoryx but we only test FreeBSD on our CI.
 
-typedef struct Channel * sub_t;
+### Where is Eclipse iceoryx used?
 
-sub_t iox_chan_create(const char * name);
-void iox_chan_destroy(sub_t const self);
-bool iox_chan_receive(sub_t const self, void * const data);
-bool iox_chan_send(sub_t const self, void * const data);
-void iox_chan_all_hail_hypnotoad(sub_t const self);
+|Framework | Description |
+|---|---|
+| [ROS 2](https://github.com/ros2/rmw_iceoryx) | Eclipse iceoryx can be used inside the [Robot Operating System](https://www.ros.org/) with [rmw_iceoryx](https://github.com/ros2/rmw_iceoryx.git) |
+| [eCAL](https://github.com/continental/ecal) | Open-source framework from [Continental AG](https://www.continental.com/) supporting pub/sub and various message protocols |
+| [RTA-VRTE](https://www.etas.com/en/products/rta-vrte.php) | [AUTOSAR Adaptive Platform](https://www.autosar.org/standards/adaptive-platform/) software framework for vehicle computer from [ETAS GmbH](https://www.etas.com) |
+| [Cyclone DDS](https://github.com/eclipse-cyclonedds/cyclonedds) | Performant and robust open-source DDS implementation maintained by [ADLINK Technology Inc.](https://www.adlinktech.com/) |
+| [Apex.Middleware](https://www.apex.ai/apex-middleware) | Safe and certified middleware for autonomous mobility systems from [Apex.AI](https://www.apex.ai/) |
+| [AVIN AP](https://www.avinsystems.com/products/autosar_ap_solutions/) | AUTOSAR Adaptive Platform Product from AVIN Systems |
 
+## Build and install
 
-struct iox_other_class_storage_t_ {
-    uint64_t do_not_touch_me[8]; // lets assume 8 * 8 is the size of MyOtherClass
-};
-typedef iox_other_class_storage_t_ iox_other_class_storage_t;
+You can find the build and installation guidelines [here](doc/website/getting-started/installation.md).
 
-typedef struct MyOtherClass * iox_other_class_t;
-iox_other_class_t iox_other_class_init(iox_other_class_storage_t * self,const int a);
-void iox_other_class_deinit(iox_other_class_t * self);
-void iox_other_class_you_spin_me_round_like_a_record(iox_other_class_t * self);
-```
+## Examples
+
+After you've built all the necessary things, you can continue playing around with the [examples](./iceoryx_examples/README.md).
+
+## Build and run in a Docker environment
+
+If you want to avoid installing anything on your host machine but you have Docker installed, it is possible to use it to build and run iceoryx applications.
+
+Please see the dedicated [README.md](tools/docker/README.md) for information on how to do this.
+
+## Documentation
+
+* [Getting Started](doc/website/getting-started/overview.md)
+* [Installation Guide](doc/website/getting-started/installation.md)
+* [iceoryx Hoofs Hacker Guide](iceoryx_hoofs/README.md)
+
+### Quality levels & platforms
+
+> [Quality level](./CONTRIBUTING.md#quality-levels) are 5 to 1+, where 1+ is highest level.
+
+Please see the [Quality Declaration](./QUALITY_DECLARATION.md) for details of the quality measures according to ROS 2 guidelines.
+
+|CMake project/target   | Current Level | Target Level QNX  | Target Level <br> Linux, Windows, macOS | Comment                             |
+|-----------------------|:-------------:|:-----------------:|:---------------------------------------:|:-----------------------------------:|
+| iceoryx_hoofs         | 2             | 1+                | 1                                       | Except code in the namespace `aux`  |
+| iceoryx_posh          | 2             | 1+, 2             | 1                                       | Except code in the namespace `aux`  |
+| iceoryx_binding_c     | 2             | 1+                | 1                                       |                                     |
+| iceoryx_examples      | 5             | 4                 | 4                                       | All example code in this folder     |
+| iceoryx_dds           | 4             | 4                 | 4                                       |                                     |
+| iceoryx_introspection | 5             | 4                 | 4                                       |                                     |
+| iceoryx_meta          | 5             | 5                 | 5                                       |                                     |
+
+Is something missing or you've got ideas for other nifty examples? Jump right away to the next section!
+
+## Contribute
+
+Please refer to the [CONTRIBUTING.md](./CONTRIBUTING.md) for a quick read-up about what to consider if you want to contribute.
+
+## Planned features
+
+Get to know the upcoming features and the project scope in [PLANNED_FEATURES.md](./PLANNED_FEATURES.md).
+
+## Innovations enabled by iceoryx
+
+|Name | Description | Technologies |
+|---|---|---|
+| [Larry.Robotics](https://gitlab.com/larry.robotics) | An iceoryx demonstrator for tinker, thinker and toddler | Demonstrator |
+| [iceoryx-rs](https://github.com/eclipse-iceoryx/iceoryx-rs) | Experimental Rust wrapper for iceoryx | Rust |
+| [IceRay](https://github.com/elBoberido/iceray) | An iceoryx introspection client written in Rust | Rust |
+
+## Frequently Asked Questions (FAQ)
+
+[FAQ.md](./doc/website/FAQ.md)
+
+## Governance & maintainers
+
+Please have a look at the [GOVERNANCE.md](./GOVERNANCE.md).
