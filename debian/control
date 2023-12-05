@@ -1,0 +1,12 @@
+Source: ros-humble-iceoryx-introspection
+Section: misc
+Priority: optional
+Maintainer: Eclipse Foundation, Inc. <iceoryx-oss-support@apex.ai>
+Build-Depends: debhelper (>= 9.0.0), cmake, libncurses5-dev, ros-humble-iceoryx-hoofs, ros-humble-iceoryx-posh, ros-humble-ros-workspace
+Homepage: https://iceoryx.io
+Standards-Version: 3.9.2
+
+Package: ros-humble-iceoryx-introspection
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libncurses5-dev, ros-humble-iceoryx-hoofs, ros-humble-iceoryx-posh, ros-humble-ros-workspace
+Description: Eclipse iceoryx inter-process-communication (IPC) middleware introspection client
